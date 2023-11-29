@@ -1,45 +1,65 @@
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-/// Compute the hash for the given file.
-/// Arguments:
-///     * `filepath`: The path to the file to compute the hash of
-///
-/// Returns
-///     The file's SHA-1 hash
-fn get_hash(filepath: &Path) -> Vec<u8> {
-    if filepath.is_file() {
-        let mut hasher = Sha256::new();
-        let mut file = File::open(filepath).unwrap();
-
-        // This whole io::copy thing came from here
-        // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
-        // Uses way less memory than reading the file directly
-        io::copy(&mut file, &mut hasher).unwrap();
-        let result = hasher.finalize();
-        return result.to_vec();
-    }
-    return vec![];
+struct FileHash {
+    /// The path to the file that was hashed
+    filepath: PathBuf,
+    /// The file's hash
+    hash: Vec<u8>,
+    /// Whether or not the given path is a file. Only files are hashed
+    is_file: bool,
 }
 
-/// Get the string representation of the hash
-/// Arguments:
-///     * `path`: The path of the file that was hashed.
-///     * `hash`: The hash itself
-///
-/// Returns:
-///     The hash as a string
-fn get_hash_str(path: &Path, hash: Vec<u8>) -> String {
-    let mut hash_string = String::new();
-    for digit in hash {
-        hash_string = format!("{hash_string}{:x}", digit);
+impl FileHash {
+    /// Create the new hash from the given path.
+    ///
+    /// Arguments
+    ///     * `filepath`: The path to the file to hash.
+    ///
+    /// Returns:
+    ///     The created `FileHash`
+    pub fn new(filepath: PathBuf) -> Self {
+        if filepath.is_file() {
+            let mut hasher = Sha256::new();
+            let mut file = File::open(&filepath).unwrap();
+            // This whole io::copy thing came from here
+            // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
+            // Uses way less memory than reading the file directly
+            io::copy(&mut file, &mut hasher).unwrap();
+            let hash = hasher.finalize().to_vec();
+            return Self {
+                filepath,
+                hash,
+                is_file: true,
+            };
+        }
+        return Self {
+            filepath,
+            hash: Vec::new(),
+            is_file: false,
+        };
     }
-    return format!("{}:{}\t", path.display(), hash_string);
+
+    /// Get the printout line for the given hash
+    ///
+    /// Returns
+    ///     `String` that has the path to the file, and the file's hash
+    pub fn as_print_line(&self) -> String {
+        if self.is_file {
+            let mut hash_string = String::new();
+            for digit in &self.hash {
+                hash_string = format!("{hash_string}{:x}", digit);
+            }
+            return format!("{}:{}\t", self.filepath.display(), hash_string);
+        } else {
+            return format! {"{}: directory", self.filepath.display()};
+        }
+    }
 }
 
 fn main() {
@@ -52,12 +72,11 @@ fn main() {
         num_items += 1;
         let tx = tx.clone();
         pool.execute(move || {
-            let path = entry.unwrap();
-            let path = path.path();
+            let entry = entry.unwrap();
+            let path = PathBuf::from(entry.path());
             // println!("Hello");
-            let hash = get_hash(&path);
-            let hash_str = get_hash_str(&path, hash);
-            tx.send(hash_str).expect("Hello")
+            let hash = FileHash::new(path);
+            tx.send(hash.as_print_line()).expect("Hello")
         });
     }
     let results: Vec<String> = rx.iter().take(num_items).collect();
