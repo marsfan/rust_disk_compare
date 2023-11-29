@@ -29,6 +29,7 @@ impl FileHash {
             // This whole io::copy thing came from here
             // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
             // Uses way less memory than reading the file directly
+            // Guessing its sending copying the file in chunks?
             io::copy(&mut file, &mut hasher).unwrap();
             let hash = hasher.finalize().to_vec();
             Self {
@@ -68,11 +69,9 @@ fn main() {
     let results: Vec<String> = file_list
         .into_iter()
         .par_bridge()
-        .map(|entry| {
-            let entry = entry.as_ref().unwrap();
-            let path = PathBuf::from(entry.path());
-            let hash = FileHash::new(path);
-            return hash.as_print_line();
+        .map(|entry: Result<DirEntry, Error>| {
+            let path = PathBuf::from(entry.unwrap().path());
+            FileHash::new(path).as_print_line()
         })
         .collect();
     for result in results {
