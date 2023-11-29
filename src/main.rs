@@ -9,6 +9,8 @@ use walkdir::{DirEntry, Error, WalkDir};
 // TODO: Proper error handling
 // TODO: Argument for specifying the path to use
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
+// TODO: Actually compare directories
+// TODO: Put on github
 
 struct FileHash {
     /// The path to the file that was hashed
