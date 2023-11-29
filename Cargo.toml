@@ -1,0 +1,11 @@
+[package]
+name = "disk_compare"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sha2 = { version = "0.10.8"}
+threadpool = "1.8.1"
+walkdir = "2.4.0"
