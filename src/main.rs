@@ -64,16 +64,12 @@ impl FileHash {
 }
 
 fn main() {
-    let results: Vec<String> = WalkDir::new("test_files")
+    WalkDir::new("test_files")
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.unwrap().path());
             FileHash::new(path).as_print_line()
         })
-        .collect();
-
-    for result in results {
-        println!("{result}")
-    }
+        .for_each(|result| println!("{result}"));
 }
