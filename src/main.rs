@@ -63,13 +63,14 @@ impl FileHash {
     }
 }
 
-fn main() {
+fn pool_iteration() {
     // FIXME: Switch to rayon for parallelism?
     // Pool with 10 workers.
     let pool = ThreadPool::new(10);
     // Queues for sending data
     let (tx, rx) = channel();
     let mut num_items: usize = 0;
+
     for entry in WalkDir::new("test_files") {
         num_items += 1;
         let tx = tx.clone();
@@ -85,6 +86,24 @@ fn main() {
     for result in results {
         println!("{result}")
     }
+}
 
-    println!("Hello, world!");
+fn linear_iteration() {
+    let walker = WalkDir::new("test_files");
+    let results: Vec<String> = walker
+        .into_iter()
+        .map(|entry| {
+            let entry = entry.unwrap();
+            let path = PathBuf::from(entry.path());
+            let hash = FileHash::new(path);
+            return hash.as_print_line();
+        })
+        .collect();
+    for result in results {
+        println!("{result}")
+    }
+}
+
+fn main() {
+    linear_iteration()
 }
