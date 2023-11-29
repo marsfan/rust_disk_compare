@@ -64,9 +64,7 @@ impl FileHash {
 }
 
 fn main() {
-    let walker = WalkDir::new("test_files");
-    let file_list: Vec<Result<DirEntry, Error>> = walker.into_iter().collect();
-    let results: Vec<String> = file_list
+    let results: Vec<String> = WalkDir::new("test_files")
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
@@ -74,6 +72,7 @@ fn main() {
             FileHash::new(path).as_print_line()
         })
         .collect();
+
     for result in results {
         println!("{result}")
     }
