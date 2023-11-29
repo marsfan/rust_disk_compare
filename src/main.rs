@@ -1,11 +1,10 @@
+use rayon::iter::ParallelBridge;
+use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
-use std::sync::mpsc::channel;
-use threadpool::ThreadPool;
-use walkdir::WalkDir;
-
+use walkdir::{DirEntry, Error, WalkDir};
 struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
@@ -63,37 +62,14 @@ impl FileHash {
     }
 }
 
-fn pool_iteration() {
-    // FIXME: Switch to rayon for parallelism?
-    // Pool with 10 workers.
-    let pool = ThreadPool::new(10);
-    // Queues for sending data
-    let (tx, rx) = channel();
-    let mut num_items: usize = 0;
-
-    for entry in WalkDir::new("test_files") {
-        num_items += 1;
-        let tx = tx.clone();
-        pool.execute(move || {
-            let entry = entry.unwrap();
-            let path = PathBuf::from(entry.path());
-            // println!("Hello");
-            let hash = FileHash::new(path);
-            tx.send(hash.as_print_line()).expect("Hello")
-        });
-    }
-    let results: Vec<String> = rx.iter().take(num_items).collect();
-    for result in results {
-        println!("{result}")
-    }
-}
-
-fn linear_iteration() {
+fn main() {
     let walker = WalkDir::new("test_files");
-    let results: Vec<String> = walker
+    let file_list: Vec<Result<DirEntry, Error>> = walker.into_iter().collect();
+    let results: Vec<String> = file_list
         .into_iter()
+        .par_bridge()
         .map(|entry| {
-            let entry = entry.unwrap();
+            let entry = entry.as_ref().unwrap();
             let path = PathBuf::from(entry.path());
             let hash = FileHash::new(path);
             return hash.as_print_line();
@@ -102,8 +78,4 @@ fn linear_iteration() {
     for result in results {
         println!("{result}")
     }
-}
-
-fn main() {
-    linear_iteration()
 }
