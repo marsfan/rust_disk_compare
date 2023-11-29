@@ -32,17 +32,18 @@ impl FileHash {
             // Uses way less memory than reading the file directly
             io::copy(&mut file, &mut hasher).unwrap();
             let hash = hasher.finalize().to_vec();
-            return Self {
+            Self {
                 filepath,
                 hash,
                 is_file: true,
-            };
+            }
+        } else {
+            Self {
+                filepath,
+                hash: Vec::new(),
+                is_file: false,
+            }
         }
-        return Self {
-            filepath,
-            hash: Vec::new(),
-            is_file: false,
-        };
     }
 
     /// Get the printout line for the given hash
@@ -55,14 +56,15 @@ impl FileHash {
             for digit in &self.hash {
                 hash_string = format!("{hash_string}{:x}", digit);
             }
-            return format!("{}:{}\t", self.filepath.display(), hash_string);
+            format!("{}:{}\t", self.filepath.display(), hash_string)
         } else {
-            return format! {"{}: directory", self.filepath.display()};
+            format! {"{}: directory", self.filepath.display()}
         }
     }
 }
 
 fn main() {
+    // FIXME: Switch to rayon for parallelism?
     // Pool with 10 workers.
     let pool = ThreadPool::new(10);
     // Queues for sending data
@@ -83,7 +85,6 @@ fn main() {
     for result in results {
         println!("{result}")
     }
-    // println!("{:?}", results);
 
     println!("Hello, world!");
 }
