@@ -1,3 +1,5 @@
+use clap::Parser;
+use disk_compare::cli::Arguments;
 use disk_compare::errors::ToolError;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::ParallelIterator;
@@ -76,7 +78,8 @@ impl FileHash {
 }
 
 fn main() {
-    WalkDir::new("test_files")
+    let args = Arguments::parse();
+    WalkDir::new(args.base_path)
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
