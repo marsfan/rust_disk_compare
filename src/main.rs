@@ -9,7 +9,6 @@ use std::io;
 use std::path::PathBuf;
 use walkdir::{DirEntry, Error, WalkDir};
 
-// TODO: Proper error handling
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
 // TODO: Actually compare directories
 // TODO: Put on github
