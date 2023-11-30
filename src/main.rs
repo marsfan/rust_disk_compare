@@ -4,14 +4,15 @@ use disk_compare::errors::ToolError;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::io;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs::File};
 use walkdir::{DirEntry, Error, WalkDir};
 
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
-// TODO: Actually compare directories
 // TODO: Put on github
+// TODO: Add MPL license header to all files.
 
 struct FileHash {
     /// The path to the file that was hashed
@@ -103,15 +104,50 @@ fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
 
 fn main() {
     let args = Arguments::parse();
-    let hashes = hash_directory(args.base_path.clone());
-    let mut hm = HashMap::new();
+    let first_dir_hashes = hash_directory(args.first_path.clone());
+    let mut first_dir_hashmap = HashMap::new();
 
-    for hash in hashes {
-        println!("{}", hash.relative_path(&args.base_path).display());
-        hm.insert(
-            hash.relative_path(&args.base_path).display().to_string(),
+    for hash in &first_dir_hashes {
+        // println!("{}", hash.relative_path(&args.first_path).display());
+        first_dir_hashmap.insert(
+            hash.relative_path(&args.first_path).display().to_string(),
             hash.hash_string(),
         );
     }
-    println!("{:?}", hm);
+    let first_dir_hashset: HashSet<String> = first_dir_hashmap.keys().cloned().collect();
+
+    if let Some(second_dir) = args.second_path {
+        let second_dir_hashes = hash_directory(second_dir.clone());
+        let mut second_dir_hashmap = HashMap::new();
+        for hash in second_dir_hashes {
+            second_dir_hashmap.insert(
+                hash.relative_path(&second_dir).display().to_string(),
+                hash.hash_string(),
+            );
+        }
+        let second_dir_hashset: HashSet<String> = second_dir_hashmap.keys().cloned().collect();
+        println!("In first dir but not second:");
+        for file in first_dir_hashset.difference(&second_dir_hashset) {
+            println!("\t{file}");
+        }
+        println!("In second dir but not first:");
+        for file in second_dir_hashset.difference(&first_dir_hashset) {
+            println!("\t{file}");
+        }
+
+        println!("In both dirs, but hashes differ:");
+        for (filepath, hash) in first_dir_hashmap.iter() {
+            if second_dir_hashmap.contains_key(filepath)
+                && second_dir_hashmap.get(filepath) != Some(hash)
+            {
+                println!("\t{filepath}");
+            }
+        }
+    } else {
+        for hash in first_dir_hashes {
+            println!("{}", hash.as_print_line());
+        }
+    }
+
+    // println!("{:?}", first_dir_hashmap);
 }
