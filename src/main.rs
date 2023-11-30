@@ -18,8 +18,6 @@ struct FileHash {
     filepath: PathBuf,
     /// The file's hash
     hash: Vec<u8>,
-    /// Whether or not the given path is a file. Only files are hashed
-    is_file: bool,
 }
 
 impl FileHash {
@@ -29,34 +27,31 @@ impl FileHash {
     ///     * `filepath`: The path to the file to hash.
     ///
     /// Returns:
-    ///     The created `FileHash`
+    ///     The created `FileHash` instance.
     pub fn new(filepath: PathBuf) -> Result<Self, ToolError> {
-        let is_file = filepath.is_file();
-
         // Only compute hash if the path points to a file
-        let hash = if is_file {
-            let mut hasher = Sha256::new();
-            let mut file = File::open(&filepath).map_err(|error| ToolError::FileReadError {
-                kind: error.kind(),
-                filepath: filepath.display().to_string(),
-            })?;
-
-            // This whole io::copy thing came from here
-            // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
-            // Uses way less memory than reading the file directly
-            // Guessing its sending copying the file in chunks?
-
-            io::copy(&mut file, &mut hasher)?;
-            hasher.finalize().to_vec()
-        } else {
-            Vec::new()
+        let hash = match filepath.is_file() {
+            true => Self::hash_file(&filepath)?,
+            false => Vec::new(),
         };
 
-        Ok(Self {
-            filepath,
-            hash,
-            is_file,
-        })
+        Ok(Self { filepath, hash })
+    }
+
+    fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
+        let mut hasher = Sha256::new();
+        let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
+            kind: error.kind(),
+            filepath: filepath.display().to_string(),
+        })?;
+
+        // This whole io::copy thing came from here
+        // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
+        // Uses way less memory than reading the file directly
+        // Guessing its sending copying the file in chunks?
+
+        io::copy(&mut file, &mut hasher)?;
+        Ok(hasher.finalize().to_vec())
     }
 
     /// Get the printout line for the given hash
@@ -64,15 +59,11 @@ impl FileHash {
     /// Returns
     ///     `String` that has the path to the file, and the file's hash
     pub fn as_print_line(&self) -> String {
-        if self.is_file {
-            let mut hash_string = String::new();
-            for digit in &self.hash {
-                hash_string = format!("{hash_string}{:x}", digit);
-            }
-            format!("{}:{}\t", self.filepath.display(), hash_string)
-        } else {
-            format! {"{}: directory", self.filepath.display()}
+        let mut hash_string = String::new();
+        for digit in &self.hash {
+            hash_string = format!("{hash_string}{:x}", digit);
         }
+        format!("{}:\t{hash_string}", self.filepath.display())
     }
 }
 
