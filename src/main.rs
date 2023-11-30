@@ -15,9 +15,9 @@ use walkdir::{DirEntry, Error, WalkDir};
 
 struct FileHash {
     /// The path to the file that was hashed
-    filepath: PathBuf,
+    pub filepath: PathBuf,
     /// The file's hash
-    hash: Vec<u8>,
+    pub hash: Vec<u8>,
 }
 
 impl FileHash {
@@ -65,16 +65,38 @@ impl FileHash {
         }
         format!("{}:\t{hash_string}", self.filepath.display())
     }
+
+    /// Get the filepath relative to a base directory
+    ///
+    /// Arguments:
+    ///     * `base_dir`: The base directory
+    ///
+    /// Returns:
+    ///     The path relative to the give pase directory
+    pub fn relative_path(&self, base_dir: &PathBuf) -> PathBuf {
+        return PathBuf::from(self.filepath.strip_prefix(base_dir).unwrap());
+    }
 }
 
-fn main() {
-    let args = Arguments::parse();
-    WalkDir::new(args.base_path)
+/// Compute hashes of all files in the given directory.
+///
+/// Arguments:
+///     * `directory`: The directory to comptue the hashes of.
+fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
+    WalkDir::new(directory)
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.unwrap().path());
-            FileHash::new(path).unwrap().as_print_line()
+            FileHash::new(path).unwrap()
         })
-        .for_each(|result| println!("{result}"));
+        .collect()
+}
+
+fn main() {
+    let args = Arguments::parse();
+    let hashes = hash_directory(args.base_path.clone());
+    for hash in hashes {
+        println!("{}", hash.relative_path(&args.base_path).display());
+    }
 }
