@@ -4,9 +4,9 @@ use disk_compare::errors::ToolError;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use std::{collections::HashMap, fs::File};
 use walkdir::{DirEntry, Error, WalkDir};
 
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
@@ -54,16 +54,16 @@ impl FileHash {
         Ok(hasher.finalize().to_vec())
     }
 
-    /// Get the printout line for the given hash
+    /// Get the file hash as a string
     ///
-    /// Returns
-    ///     `String` that has the path to the file, and the file's hash
-    pub fn as_print_line(&self) -> String {
+    /// Returns:
+    ///     File hash as a string
+    fn hash_string(&self) -> String {
         let mut hash_string = String::new();
         for digit in &self.hash {
             hash_string = format!("{hash_string}{:x}", digit);
         }
-        format!("{}:\t{hash_string}", self.filepath.display())
+        hash_string
     }
 
     /// Get the filepath relative to a base directory
@@ -75,6 +75,14 @@ impl FileHash {
     ///     The path relative to the give pase directory
     pub fn relative_path(&self, base_dir: &PathBuf) -> PathBuf {
         return PathBuf::from(self.filepath.strip_prefix(base_dir).unwrap());
+    }
+
+    /// Get the printout line for the given hash
+    ///
+    /// Returns
+    ///     `String` that has the path to the file, and the file's hash
+    pub fn as_print_line(&self) -> String {
+        format!("{}:\t{}", self.filepath.display(), self.hash_string())
     }
 }
 
@@ -96,7 +104,14 @@ fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
 fn main() {
     let args = Arguments::parse();
     let hashes = hash_directory(args.base_path.clone());
+    let mut hm = HashMap::new();
+
     for hash in hashes {
         println!("{}", hash.relative_path(&args.base_path).display());
+        hm.insert(
+            hash.relative_path(&args.base_path).display().to_string(),
+            hash.hash_string(),
+        );
     }
+    println!("{:?}", hm);
 }
