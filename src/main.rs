@@ -103,6 +103,9 @@ fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
 }
 
 fn main() {
+    // TODO: Break stuff up into functions
+    // TODO: use iterators (even returning from functions?)
+    // TODO: Parallelize first and second directories?
     let args = Arguments::parse();
     let first_dir_hashes = hash_directory(args.first_path.clone());
     let mut first_dir_hashmap = HashMap::new();
