@@ -154,14 +154,15 @@ impl CompareResult {
             .map(String::from)
             .collect();
 
-        let mut different_hashes: Vec<String> = Vec::new();
-        for (filepath, hash) in &first_info.hashmap {
-            if second_info.hashmap.contains_key(filepath)
-                && second_info.hashmap.get(filepath) != Some(hash)
-            {
-                different_hashes.push(filepath.into());
-            }
-        }
+        let different_hashes = first_info
+            .hashmap
+            .iter()
+            .filter(|&(filepath, hash)| {
+                second_info.hashmap.contains_key(filepath)
+                    && second_info.hashmap.get(filepath) != Some(hash)
+            })
+            .map(|(filepath, _)| filepath.into())
+            .collect();
 
         Self {
             first_not_second,
