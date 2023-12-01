@@ -133,19 +133,25 @@ struct CompareResult {
 }
 
 impl CompareResult {
-    pub fn new(first_info: DirectoryInfo, second_info: DirectoryInfo) -> Self {
+    /// Compute comparasion results
+    ///
+    /// Arguments:
+    ///     * `first_info`: The first directory's results
+    ///     * `second_info`: The second directory's results
+    ///
+    /// Returns:
+    ///     Created `CompareResult` instance.
+    pub fn new(first_info: &DirectoryInfo, second_info: &DirectoryInfo) -> Self {
         let first_not_second = first_info
             .paths
             .difference(&second_info.paths)
-            .into_iter()
-            .map(|element| element.into())
+            .map(String::from)
             .collect();
 
         let second_not_first = second_info
             .paths
             .difference(&first_info.paths)
-            .into_iter()
-            .map(|element| element.into())
+            .map(String::from)
             .collect();
 
         let mut different_hashes: Vec<String> = Vec::new();
@@ -177,7 +183,7 @@ impl CompareResult {
     ///     * `description`: The description text to print at the start
     ///     * `files`: The vector of the files to print out.
     fn print_vec(description: &str, files: &Vec<String>) {
-        if files.len() > 0 {
+        if !files.is_empty() {
             println!("{description}");
             for file in files {
                 println!("\t{file}");
@@ -196,7 +202,7 @@ fn main() {
         let second_dir_hashes = hash_directory(&second_dir);
         let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
 
-        CompareResult::new(first_dir_info, second_dir_info).print_results();
+        CompareResult::new(&first_dir_info, &second_dir_info).print_results();
     } else {
         for (path, hash) in first_dir_info.hashmap {
             println!("{path}:\t{hash}");
