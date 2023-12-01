@@ -1,3 +1,8 @@
+/*
+* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at https: //mozilla.org/MPL/2.0/.
+*/
 //!Tool for computing hashes and comparing files
 use clap::Parser;
 use disk_compare::cli::Arguments;
@@ -12,8 +17,6 @@ use std::{collections::HashMap, fs::File};
 use walkdir::{DirEntry, Error, WalkDir};
 
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
-// TODO: Put on github
-// TODO: Add MPL license header to all files.
 
 /// A single file and its hash
 struct FileHash {
