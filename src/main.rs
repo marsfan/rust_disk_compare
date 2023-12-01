@@ -154,6 +154,4 @@ fn main() {
             println!("{}", hash.as_print_line());
         }
     }
-
-    // println!("{:?}", first_dir_hashmap);
 }
