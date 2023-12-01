@@ -108,26 +108,29 @@ fn main() {
     // TODO: Parallelize first and second directories?
     let args = Arguments::parse();
     let first_dir_hashes = hash_directory(args.first_path.clone());
-    let mut first_dir_hashmap = HashMap::new();
-
-    for hash in &first_dir_hashes {
-        // println!("{}", hash.relative_path(&args.first_path).display());
-        first_dir_hashmap.insert(
-            hash.relative_path(&args.first_path).display().to_string(),
-            hash.hash_string(),
-        );
-    }
+    let first_dir_hashmap: HashMap<String, String> = first_dir_hashes
+        .iter()
+        .map(|v| {
+            (
+                v.relative_path(&args.first_path).display().to_string(),
+                v.hash_string(),
+            )
+        })
+        .collect();
     let first_dir_hashset: HashSet<String> = first_dir_hashmap.keys().cloned().collect();
 
     if let Some(second_dir) = args.second_path {
         let second_dir_hashes = hash_directory(second_dir.clone());
-        let mut second_dir_hashmap = HashMap::new();
-        for hash in second_dir_hashes {
-            second_dir_hashmap.insert(
-                hash.relative_path(&second_dir).display().to_string(),
-                hash.hash_string(),
-            );
-        }
+        let second_dir_hashmap: HashMap<String, String> = second_dir_hashes
+            .iter()
+            .map(|v| {
+                (
+                    v.relative_path(&second_dir).display().to_string(),
+                    v.hash_string(),
+                )
+            })
+            .collect();
+
         let second_dir_hashset: HashSet<String> = second_dir_hashmap.keys().cloned().collect();
         println!("In first dir but not second:");
         for file in first_dir_hashset.difference(&second_dir_hashset) {
