@@ -121,8 +121,72 @@ impl From<&Vec<FileHash>> for DirectoryInfo {
     }
 }
 
+/// Results from comparing two paths.
+struct CompareResult {
+    // TODO: Add a member for identical files?
+    /// Files in the first path, but not the second.
+    first_not_second: Vec<String>,
+    /// Files in second path, but not first
+    second_not_first: Vec<String>,
+    /// Files in both, but with differing hashes.
+    different_hashes: Vec<String>,
+}
+
+impl CompareResult {
+    pub fn new(first_info: DirectoryInfo, second_info: DirectoryInfo) -> Self {
+        let first_not_second = first_info
+            .paths
+            .difference(&second_info.paths)
+            .into_iter()
+            .map(|element| element.into())
+            .collect();
+
+        let second_not_first = second_info
+            .paths
+            .difference(&first_info.paths)
+            .into_iter()
+            .map(|element| element.into())
+            .collect();
+
+        let mut different_hashes: Vec<String> = Vec::new();
+        for (filepath, hash) in &first_info.hashmap {
+            if second_info.hashmap.contains_key(filepath)
+                && second_info.hashmap.get(filepath) != Some(hash)
+            {
+                different_hashes.push(filepath.into());
+            }
+        }
+
+        Self {
+            first_not_second,
+            second_not_first,
+            different_hashes,
+        }
+    }
+
+    /// Print the differencess to stdout
+    pub fn print_results(&self) {
+        Self::print_vec("In first path, but not second", &self.first_not_second);
+        Self::print_vec("In second path, but not first:", &self.second_not_first);
+        Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+    }
+
+    /// Print the given info line and vector values if the vector length > 0
+    ///
+    /// Arguments:
+    ///     * `description`: The description text to print at the start
+    ///     * `files`: The vector of the files to print out.
+    fn print_vec(description: &str, files: &Vec<String>) {
+        if files.len() > 0 {
+            println!("{description}");
+            for file in files {
+                println!("\t{file}");
+            }
+        }
+    }
+}
+
 fn main() {
-    // TODO: Break stuff up into functions
     // TODO: Parallelize first and second directories?
     let args = Arguments::parse();
     let first_dir_hashes = hash_directory(&args.first_path);
@@ -132,23 +196,7 @@ fn main() {
         let second_dir_hashes = hash_directory(&second_dir);
         let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
 
-        println!("In first dir but not second:");
-        for file in first_dir_info.paths.difference(&second_dir_info.paths) {
-            println!("\t{file}");
-        }
-        println!("In second dir but not first:");
-        for file in second_dir_info.paths.difference(&first_dir_info.paths) {
-            println!("\t{file}");
-        }
-
-        println!("In both dirs, but hashes differ:");
-        for (filepath, hash) in &first_dir_info.hashmap {
-            if second_dir_info.hashmap.contains_key(filepath)
-                && second_dir_info.hashmap.get(filepath) != Some(hash)
-            {
-                println!("\t{filepath}");
-            }
-        }
+        CompareResult::new(first_dir_info, second_dir_info).print_results();
     } else {
         for (path, hash) in first_dir_info.hashmap {
             println!("{path}:\t{hash}");
