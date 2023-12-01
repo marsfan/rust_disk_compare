@@ -201,11 +201,14 @@ impl CompareResult {
 
 fn main() {
     // TODO: Parallelize first and second directories?
+    // TODO: Progress bar of some sort?
     let args = Arguments::parse();
+    println!("Computing hashes for first path");
     let first_dir_hashes = hash_directory(&args.first_path);
     let first_dir_info = DirectoryInfo::from(&first_dir_hashes);
 
     if let Some(second_dir) = args.second_path {
+        println!("Computing hashes for second path");
         let second_dir_hashes = hash_directory(&second_dir);
         let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
 
