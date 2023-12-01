@@ -7,7 +7,7 @@ use std::path::PathBuf;
 #[command(
     author,
     version,
-    about = "Tool for computing hashes and comparsing files",
+    about = "Tool for computing hashes and comparing files",
     after_help = "If only one path is supplied, the tool will print out all found files and their hashes. If two paths are supplied, the tool will output the differences between the two paths."
 )]
 pub struct Arguments {

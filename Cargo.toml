@@ -2,8 +2,11 @@
 name = "disk_compare"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MPL-2.0"
+description = "Tool for computing hashes and comparing files"
+keywords = ["compare", "hash", "checksum", "tool", "parallel"]
+categories = ["command-line-utilities"]
+repository = "https://www.github.com/marsfan/rust_disk_compare"
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
@@ -15,7 +18,7 @@ walkdir = "2.4.0"
 
 [lints.clippy]
 all = "warn"
-correctnesss = "warn"
+correctness = "warn"
 suspicious = "warn"
 complexity = "warn"
 perf = "warn"

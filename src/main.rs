@@ -1,3 +1,4 @@
+//!Tool for computing hashes and comparing files
 use clap::Parser;
 use disk_compare::cli::Arguments;
 use disk_compare::errors::ToolError;
@@ -14,6 +15,7 @@ use walkdir::{DirEntry, Error, WalkDir};
 // TODO: Put on github
 // TODO: Add MPL license header to all files.
 
+/// A single file and its hash
 struct FileHash {
     /// The path to the file that was hashed
     pub filepath: PathBuf,
@@ -32,18 +34,25 @@ impl FileHash {
     ///     The created `FileHash` instance.
     pub fn new(filepath: PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
-        let hash = match filepath.is_file() {
-            true => Self::hash_file(&filepath)?,
-            false => Vec::new(),
+        let hash = if filepath.is_file() {
+            Self::hash_file(&filepath)?
+        } else {
+            Vec::new()
         };
         // If the provided path is not the base path, strip the base path
-        let filepath = match filepath.eq(base_path) {
-            true => filepath,
-            false => filepath.strip_prefix(base_path).unwrap().to_path_buf(),
+        let filepath = if filepath.eq(base_path) {
+            filepath
+        } else {
+            filepath.strip_prefix(base_path)?.to_path_buf()
         };
+
         Ok(Self { filepath, hash })
     }
 
+    /// Compute the hash of the given file
+    ///
+    /// Arguments
+    ///     * `filepath`: Path to the file to hash.
     fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
         let mut hasher = Sha256::new();
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
@@ -67,7 +76,7 @@ impl FileHash {
     fn hash_string(&self) -> String {
         let mut hash_string = String::new();
         for digit in &self.hash {
-            hash_string = format!("{hash_string}{:x}", digit);
+            hash_string = format!("{hash_string}{digit:x}");
         }
         hash_string
     }
@@ -77,13 +86,13 @@ impl FileHash {
 ///
 /// Arguments:
 ///     * `directory`: The directory to comptue the hashes of.
-fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
-    WalkDir::new(&directory)
+fn hash_directory(directory: &PathBuf) -> Vec<FileHash> {
+    WalkDir::new(directory)
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.unwrap().path());
-            FileHash::new(path, &directory).unwrap()
+            FileHash::new(path, directory).unwrap()
         })
         .collect()
 }
@@ -113,11 +122,11 @@ fn main() {
     // TODO: Break stuff up into functions
     // TODO: Parallelize first and second directories?
     let args = Arguments::parse();
-    let first_dir_hashes = hash_directory(args.first_path.clone());
+    let first_dir_hashes = hash_directory(&args.first_path);
     let first_dir_info = DirectoryInfo::from(&first_dir_hashes);
 
     if let Some(second_dir) = args.second_path {
-        let second_dir_hashes = hash_directory(second_dir.clone());
+        let second_dir_hashes = hash_directory(&second_dir);
         let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
 
         println!("In first dir but not second:");
@@ -130,7 +139,7 @@ fn main() {
         }
 
         println!("In both dirs, but hashes differ:");
-        for (filepath, hash) in first_dir_info.hashmap.iter() {
+        for (filepath, hash) in &first_dir_info.hashmap {
             if second_dir_info.hashmap.contains_key(filepath)
                 && second_dir_info.hashmap.get(filepath) != Some(hash)
             {
