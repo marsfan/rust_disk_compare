@@ -12,3 +12,21 @@ rayon = "1.8.0"
 sha2 = "0.10.8"
 thiserror = "1.0.50"
 walkdir = "2.4.0"
+
+[lints.clippy]
+all = "warn"
+correctnesss = "warn"
+suspicious = "warn"
+complexity = "warn"
+perf = "warn"
+pedantic = "warn"
+cargo = "warn"
+
+# Individual rules instead of groups
+missing_docs_in_private_items = "warn"
+cargo_common_metadata = "warn"
+unwrap_in_result = "warn"
+match_bool = "warn"
+uninlined_format_args = "warn"
+needless_pass_by_value = "warn"
+explicit_iter_loop = "warn"
