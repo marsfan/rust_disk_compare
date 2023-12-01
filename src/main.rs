@@ -71,14 +71,6 @@ impl FileHash {
         }
         hash_string
     }
-
-    /// Get the printout line for the given hash
-    ///
-    /// Returns
-    ///     `String` that has the path to the file, and the file's hash
-    pub fn as_print_line(&self) -> String {
-        format!("{}:\t{}", self.filepath.display(), self.hash_string())
-    }
 }
 
 /// Compute hashes of all files in the given directory.
@@ -99,64 +91,55 @@ fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
 /// Information about a scanned directory.
 struct DirectoryInfo {
     /// Hashmap of all files and their hashes.
-    hashmap: HashMap<String, String>,
+    pub hashmap: HashMap<String, String>,
 
     /// Set of all scanned filepaths.
     /// Corresponds to the keys in the hashmap.
-    paths: HashSet<String>,
+    pub paths: HashSet<String>,
 }
 
-// impl From<Vec<FileHash>> for DirectoryInfo {
-//     fn from(value: Vec<FileHash>) -> Self {
-//         let hashmap = value.iter().map(|entry| {
-//             (
-//                 entry.relative_path(&args.first_path).display().to_string(),
-//                 entry.hash_string(),
-//             )
-//         });
-//     }
-// }
+impl From<&Vec<FileHash>> for DirectoryInfo {
+    fn from(value: &Vec<FileHash>) -> Self {
+        let hashmap: HashMap<String, String> = value
+            .iter()
+            .map(|entry| (entry.filepath.display().to_string(), entry.hash_string()))
+            .collect();
+        let paths: HashSet<String> = hashmap.keys().cloned().collect();
+        Self { hashmap, paths }
+    }
+}
 
 fn main() {
     // TODO: Break stuff up into functions
-    // TODO: use iterators (even returning from functions?)
     // TODO: Parallelize first and second directories?
     let args = Arguments::parse();
     let first_dir_hashes = hash_directory(args.first_path.clone());
-    let first_dir_hashmap: HashMap<String, String> = first_dir_hashes
-        .iter()
-        .map(|v| (v.filepath.display().to_string(), v.hash_string()))
-        .collect();
-    let first_dir_hashset: HashSet<String> = first_dir_hashmap.keys().cloned().collect();
+    let first_dir_info = DirectoryInfo::from(&first_dir_hashes);
 
     if let Some(second_dir) = args.second_path {
         let second_dir_hashes = hash_directory(second_dir.clone());
-        let second_dir_hashmap: HashMap<String, String> = second_dir_hashes
-            .iter()
-            .map(|v| (v.filepath.display().to_string(), v.hash_string()))
-            .collect();
+        let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
 
-        let second_dir_hashset: HashSet<String> = second_dir_hashmap.keys().cloned().collect();
         println!("In first dir but not second:");
-        for file in first_dir_hashset.difference(&second_dir_hashset) {
+        for file in first_dir_info.paths.difference(&second_dir_info.paths) {
             println!("\t{file}");
         }
         println!("In second dir but not first:");
-        for file in second_dir_hashset.difference(&first_dir_hashset) {
+        for file in second_dir_info.paths.difference(&first_dir_info.paths) {
             println!("\t{file}");
         }
 
         println!("In both dirs, but hashes differ:");
-        for (filepath, hash) in first_dir_hashmap.iter() {
-            if second_dir_hashmap.contains_key(filepath)
-                && second_dir_hashmap.get(filepath) != Some(hash)
+        for (filepath, hash) in first_dir_info.hashmap.iter() {
+            if second_dir_info.hashmap.contains_key(filepath)
+                && second_dir_info.hashmap.get(filepath) != Some(hash)
             {
                 println!("\t{filepath}");
             }
         }
     } else {
-        for hash in first_dir_hashes {
-            println!("{}", hash.as_print_line());
+        for (path, hash) in first_dir_info.hashmap {
+            println!("{path}:\t{hash}");
         }
     }
 }
