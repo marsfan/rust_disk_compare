@@ -72,17 +72,6 @@ impl FileHash {
         hash_string
     }
 
-    /// Get the filepath relative to a base directory
-    ///
-    /// Arguments:
-    ///     * `base_dir`: The base directory
-    ///
-    /// Returns:
-    ///     The path relative to the give pase directory
-    pub fn relative_path(&self, base_dir: &PathBuf) -> PathBuf {
-        return PathBuf::from(self.filepath.strip_prefix(base_dir).unwrap());
-    }
-
     /// Get the printout line for the given hash
     ///
     /// Returns
