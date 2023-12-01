@@ -26,16 +26,21 @@ impl FileHash {
     ///
     /// Arguments
     ///     * `filepath`: The path to the file to hash.
+    ///     * `base_path`: The base path the files should be relative to.
     ///
     /// Returns:
     ///     The created `FileHash` instance.
-    pub fn new(filepath: PathBuf) -> Result<Self, ToolError> {
+    pub fn new(filepath: PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
         let hash = match filepath.is_file() {
             true => Self::hash_file(&filepath)?,
             false => Vec::new(),
         };
-
+        // If the provided path is not the base path, strip the base path
+        let filepath = match filepath.eq(base_path) {
+            true => filepath,
+            false => filepath.strip_prefix(base_path).unwrap().to_path_buf(),
+        };
         Ok(Self { filepath, hash })
     }
 
@@ -92,15 +97,36 @@ impl FileHash {
 /// Arguments:
 ///     * `directory`: The directory to comptue the hashes of.
 fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
-    WalkDir::new(directory)
+    WalkDir::new(&directory)
         .into_iter()
         .par_bridge()
         .map(|entry: Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.unwrap().path());
-            FileHash::new(path).unwrap()
+            FileHash::new(path, &directory).unwrap()
         })
         .collect()
 }
+
+/// Information about a scanned directory.
+struct DirectoryInfo {
+    /// Hashmap of all files and their hashes.
+    hashmap: HashMap<String, String>,
+
+    /// Set of all scanned filepaths.
+    /// Corresponds to the keys in the hashmap.
+    paths: HashSet<String>,
+}
+
+// impl From<Vec<FileHash>> for DirectoryInfo {
+//     fn from(value: Vec<FileHash>) -> Self {
+//         let hashmap = value.iter().map(|entry| {
+//             (
+//                 entry.relative_path(&args.first_path).display().to_string(),
+//                 entry.hash_string(),
+//             )
+//         });
+//     }
+// }
 
 fn main() {
     // TODO: Break stuff up into functions
@@ -110,12 +136,7 @@ fn main() {
     let first_dir_hashes = hash_directory(args.first_path.clone());
     let first_dir_hashmap: HashMap<String, String> = first_dir_hashes
         .iter()
-        .map(|v| {
-            (
-                v.relative_path(&args.first_path).display().to_string(),
-                v.hash_string(),
-            )
-        })
+        .map(|v| (v.filepath.display().to_string(), v.hash_string()))
         .collect();
     let first_dir_hashset: HashSet<String> = first_dir_hashmap.keys().cloned().collect();
 
@@ -123,12 +144,7 @@ fn main() {
         let second_dir_hashes = hash_directory(second_dir.clone());
         let second_dir_hashmap: HashMap<String, String> = second_dir_hashes
             .iter()
-            .map(|v| {
-                (
-                    v.relative_path(&second_dir).display().to_string(),
-                    v.hash_string(),
-                )
-            })
+            .map(|v| (v.filepath.display().to_string(), v.hash_string()))
             .collect();
 
         let second_dir_hashset: HashSet<String> = second_dir_hashmap.keys().cloned().collect();
