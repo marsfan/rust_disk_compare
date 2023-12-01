@@ -154,14 +154,20 @@ impl CompareResult {
             .map(String::from)
             .collect();
 
+        // Use filter_map to return the string only for entries where
+        // it exists in the other path, but has a different hash.
         let different_hashes = first_info
             .hashmap
             .iter()
-            .filter(|&(filepath, hash)| {
-                second_info.hashmap.contains_key(filepath)
+            .filter_map(&|(filepath, hash)| {
+                if second_info.hashmap.contains_key(filepath)
                     && second_info.hashmap.get(filepath) != Some(hash)
+                {
+                    Some(String::from(filepath))
+                } else {
+                    None
+                }
             })
-            .map(|(filepath, _)| filepath.into())
             .collect();
 
         Self {
