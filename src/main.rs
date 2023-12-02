@@ -7,7 +7,8 @@
 use clap::Parser;
 use disk_compare::cli::Arguments;
 use disk_compare::errors::ToolError;
-use rayon::iter::ParallelBridge;
+use indicatif::ParallelProgressIterator;
+use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -15,7 +16,6 @@ use std::io;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs::File};
 use walkdir::{DirEntry, Error, WalkDir};
-
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
 
 /// A single file and its hash
@@ -92,9 +92,13 @@ impl FileHash {
 fn hash_directory(directory: &PathBuf) -> Vec<FileHash> {
     WalkDir::new(directory)
         .into_iter()
-        .par_bridge()
-        .map(|entry: Result<DirEntry, Error>| {
-            let path = PathBuf::from(entry.unwrap().path());
+        // FIXME: See if we can find a way to not need an intermediate collect
+        // Which will speed up parsing
+        .collect::<Vec<Result<DirEntry, Error>>>()
+        .par_iter()
+        .progress()
+        .map(|entry: &Result<DirEntry, Error>| {
+            let path = PathBuf::from(entry.as_ref().unwrap().path());
             FileHash::new(path, directory).unwrap()
         })
         .collect()
