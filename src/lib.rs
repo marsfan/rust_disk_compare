@@ -39,10 +39,10 @@ impl FileHash {
     ///
     /// Returns:
     ///     The created `FileHash` instance.
-    pub fn new(filepath: PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
+    pub fn new(filepath: &PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
         let hash = if filepath.is_file() {
-            Self::hash_file(&filepath)?
+            Self::hash_file(filepath)?
         } else {
             Vec::new()
         };
@@ -103,7 +103,7 @@ fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
         .par_iter()
         .map(|entry: &Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.as_ref().unwrap().path());
-            FileHash::new(path, base_path).unwrap()
+            FileHash::new(&path, base_path).unwrap()
         })
         .progress()
         .collect()
@@ -179,6 +179,7 @@ impl PathComparison {
     ///
     /// Returns:
     ///     Created `CompareResult` instance.
+    #[must_use]
     pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
         let first_not_second = first_info.path_difference(second_info);
         let second_not_first = second_info.path_difference(first_info);
