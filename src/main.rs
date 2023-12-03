@@ -77,11 +77,7 @@ impl FileHash {
     /// Returns:
     ///     File hash as a string
     fn hash_string(&self) -> String {
-        let mut hash_string = String::new();
-        for digit in &self.hash {
-            hash_string = format!("{hash_string}{digit:x}");
-        }
-        hash_string
+        self.hash.iter().map(|digit| format!("{digit:x}")).collect()
     }
 }
 
