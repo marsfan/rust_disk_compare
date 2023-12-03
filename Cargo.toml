@@ -34,3 +34,7 @@ match_bool = "warn"
 uninlined_format_args = "warn"
 needless_pass_by_value = "warn"
 explicit_iter_loop = "warn"
+
+# Allow multiple crate versions issue
+# caused by dependencies
+multiple_crate_versions = { level = "allow", priority = 1 }
