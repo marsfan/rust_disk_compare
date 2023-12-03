@@ -12,6 +12,7 @@ use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+use std::fmt::Write;
 use std::io;
 use std::path::PathBuf;
 use std::{collections::HashMap, fs::File};
@@ -77,7 +78,12 @@ impl FileHash {
     /// Returns:
     ///     File hash as a string
     fn hash_string(&self) -> String {
-        self.hash.iter().map(|digit| format!("{digit:x}")).collect()
+        // This is more performance than using map and format!
+        // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
+        self.hash.iter().fold(String::new(), |mut output, digit| {
+            write!(output, "{digit:x}").unwrap();
+            output
+        })
     }
 }
 
