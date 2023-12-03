@@ -91,8 +91,8 @@ impl FileHash {
 ///
 /// Arguments:
 ///     * `directory`: The directory to comptue the hashes of.
-fn hash_directory(directory: &PathBuf) -> Vec<FileHash> {
-    WalkDir::new(directory)
+fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
+    WalkDir::new(&directory)
         .into_iter()
         // FIXME: See if we can find a way to not need an intermediate collect
         // Which will speed up parsing
@@ -100,7 +100,7 @@ fn hash_directory(directory: &PathBuf) -> Vec<FileHash> {
         .par_iter()
         .map(|entry: &Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.as_ref().unwrap().path());
-            FileHash::new(path, directory).unwrap()
+            FileHash::new(path, &directory).unwrap()
         })
         .progress()
         .collect()
@@ -116,8 +116,8 @@ struct DirectoryInfo {
     pub paths: HashSet<String>,
 }
 
-impl From<&Vec<FileHash>> for DirectoryInfo {
-    fn from(value: &Vec<FileHash>) -> Self {
+impl From<Vec<FileHash>> for DirectoryInfo {
+    fn from(value: Vec<FileHash>) -> Self {
         let hashmap: HashMap<String, String> = value
             .iter()
             .map(|entry| (entry.filepath.display().to_string(), entry.hash_string()))
@@ -129,7 +129,7 @@ impl From<&Vec<FileHash>> for DirectoryInfo {
 
 impl From<PathBuf> for DirectoryInfo {
     fn from(value: PathBuf) -> Self {
-        Self::from(&hash_directory(&value))
+        Self::from(hash_directory(value))
     }
 }
 
