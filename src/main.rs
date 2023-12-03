@@ -91,8 +91,8 @@ impl FileHash {
 ///
 /// Arguments:
 ///     * `base_path`: The path to comptue the hashes of.
-fn hash_path(base_path: PathBuf) -> Vec<FileHash> {
-    WalkDir::new(&base_path)
+fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
+    WalkDir::new(base_path)
         .into_iter()
         // FIXME: See if we can find a way to not need an intermediate collect
         // Which will speed up parsing
@@ -100,7 +100,7 @@ fn hash_path(base_path: PathBuf) -> Vec<FileHash> {
         .par_iter()
         .map(|entry: &Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.as_ref().unwrap().path());
-            FileHash::new(path, &base_path).unwrap()
+            FileHash::new(path, base_path).unwrap()
         })
         .progress()
         .collect()
@@ -129,7 +129,7 @@ impl From<Vec<FileHash>> for PathInfo {
 
 impl From<PathBuf> for PathInfo {
     fn from(value: PathBuf) -> Self {
-        Self::from(hash_path(value))
+        Self::from(hash_path(&value))
     }
 }
 
