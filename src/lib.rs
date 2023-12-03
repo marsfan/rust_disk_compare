@@ -174,7 +174,7 @@ impl PathComparison {
     ///     Created `CompareResult` instance.
     pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
         let first_not_second = first_info.path_difference(second_info);
-        let second_not_first = second_info.path_difference(second_info);
+        let second_not_first = second_info.path_difference(first_info);
 
         // Use filter_map to return the string only for entries where
         // it exists in the other path, but has a different hash.
