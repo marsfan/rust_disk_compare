@@ -87,12 +87,12 @@ impl FileHash {
     }
 }
 
-/// Compute hashes of all files in the given directory.
+/// Compute hashes of all files in the given path.
 ///
 /// Arguments:
-///     * `directory`: The directory to comptue the hashes of.
-fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
-    WalkDir::new(&directory)
+///     * `base_path`: The path to comptue the hashes of.
+fn hash_path(base_path: PathBuf) -> Vec<FileHash> {
+    WalkDir::new(&base_path)
         .into_iter()
         // FIXME: See if we can find a way to not need an intermediate collect
         // Which will speed up parsing
@@ -100,14 +100,14 @@ fn hash_directory(directory: PathBuf) -> Vec<FileHash> {
         .par_iter()
         .map(|entry: &Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.as_ref().unwrap().path());
-            FileHash::new(path, &directory).unwrap()
+            FileHash::new(path, &base_path).unwrap()
         })
         .progress()
         .collect()
 }
 
-/// Information about a scanned directory.
-struct DirectoryInfo {
+/// Information about a scanned path.
+struct PathInfo {
     /// Hashmap of all files and their hashes.
     pub hashmap: HashMap<String, String>,
 
@@ -116,7 +116,7 @@ struct DirectoryInfo {
     pub paths: HashSet<String>,
 }
 
-impl From<Vec<FileHash>> for DirectoryInfo {
+impl From<Vec<FileHash>> for PathInfo {
     fn from(value: Vec<FileHash>) -> Self {
         let hashmap: HashMap<String, String> = value
             .iter()
@@ -127,14 +127,14 @@ impl From<Vec<FileHash>> for DirectoryInfo {
     }
 }
 
-impl From<PathBuf> for DirectoryInfo {
+impl From<PathBuf> for PathInfo {
     fn from(value: PathBuf) -> Self {
-        Self::from(hash_directory(value))
+        Self::from(hash_path(value))
     }
 }
 
 /// Results from comparing two paths.
-struct CompareResult {
+struct PathComparison {
     // TODO: Add a member for identical files?
     /// Files in the first path, but not the second.
     first_not_second: Vec<String>,
@@ -144,16 +144,16 @@ struct CompareResult {
     different_hashes: Vec<String>,
 }
 
-impl CompareResult {
+impl PathComparison {
     /// Compute comparasion results
     ///
     /// Arguments:
-    ///     * `first_info`: The first directory's results
-    ///     * `second_info`: The second directory's results
+    ///     * `first_info`: The first paths's info
+    ///     * `second_info`: The second paths's info
     ///
     /// Returns:
     ///     Created `CompareResult` instance.
-    pub fn new(first_info: &DirectoryInfo, second_info: &DirectoryInfo) -> Self {
+    pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
         let first_not_second = first_info
             .paths
             .difference(&second_info.paths)
@@ -212,19 +212,19 @@ impl CompareResult {
 }
 
 fn main() {
-    // TODO: Parallelize first and second directories?
+    // TODO: Parallelize first and second paths?
     // TODO: Progress bar of some sort?
     let args = Arguments::parse();
     println!("Computing hashes for first path");
-    let first_dir_info = DirectoryInfo::from(args.first_path);
+    let first_path_info = PathInfo::from(args.first_path);
 
-    if let Some(second_dir) = args.second_path {
+    if let Some(second_path) = args.second_path {
         println!("Computing hashes for second path");
-        let second_dir_info = DirectoryInfo::from(second_dir);
+        let second_path_info = PathInfo::from(second_path);
 
-        CompareResult::new(&first_dir_info, &second_dir_info).print_results();
+        PathComparison::new(&first_path_info, &second_path_info).print_results();
     } else {
-        for (path, hash) in first_dir_info.hashmap {
+        for (path, hash) in first_path_info.hashmap {
             println!("{path}:\t{hash}");
         }
     }
