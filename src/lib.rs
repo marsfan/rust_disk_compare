@@ -25,9 +25,9 @@ use walkdir::{DirEntry, Error, WalkDir};
 /// A single file and its hash
 struct FileHash {
     /// The path to the file that was hashed
-    pub filepath: PathBuf,
+    filepath: PathBuf,
     /// The file's hash
-    pub hash: Vec<u8>,
+    hash: Vec<u8>,
 }
 
 impl FileHash {
@@ -112,11 +112,11 @@ fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
 /// Information about a scanned path.
 pub struct PathInfo {
     /// Hashmap of all files and their hashes.
-    pub hashmap: HashMap<String, String>,
+    hashmap: HashMap<String, String>,
 
     /// Set of all scanned filepaths.
     /// Corresponds to the keys in the hashmap.
-    pub paths: HashSet<String>,
+    paths: HashSet<String>,
 }
 
 impl PathInfo {
@@ -127,11 +127,18 @@ impl PathInfo {
     ///
     /// # Returns:
     ///     Vector of paths in this struct, but no the other one.
-    pub fn path_difference(&self, other_info: &PathInfo) -> Vec<String> {
+    fn path_difference(&self, other_info: &PathInfo) -> Vec<String> {
         self.paths
             .difference(&other_info.paths)
             .map(String::from)
             .collect()
+    }
+
+    /// Print all of the files and their hashes to stdout.
+    pub fn print_hashes(&self) {
+        for (path, hash) in &self.hashmap {
+            println!("{path}:\t{hash}");
+        }
     }
 }
 

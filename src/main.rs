@@ -22,8 +22,6 @@ fn main() {
 
         PathComparison::new(&first_path_info, &second_path_info).print_results();
     } else {
-        for (path, hash) in first_path_info.hashmap {
-            println!("{path}:\t{hash}");
-        }
+        first_path_info.print_hashes();
     }
 }
