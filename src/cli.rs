@@ -8,6 +8,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+/// Struct  of the tool's command line arguments.
 #[derive(Parser, Debug, Eq, PartialEq)]
 #[command(
     author,

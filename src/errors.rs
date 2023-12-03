@@ -15,7 +15,12 @@ use thiserror::Error;
 pub enum ToolError {
     /// Indicates something went wrong with the opening the file.
     #[error("Error reading a file. IO Error Kind: {kind}, path: {filepath}")]
-    FileReadError { kind: ErrorKind, filepath: String },
+    FileReadError {
+        /// The kind of the source error
+        kind: ErrorKind,
+        /// The filepath that triggered the error.
+        filepath: String,
+    },
 
     /// Indicates something went wrong copying file contents into the hasher
     #[error("Error reading file bytes into hasher")]
