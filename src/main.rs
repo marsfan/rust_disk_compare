@@ -127,6 +127,12 @@ impl From<&Vec<FileHash>> for DirectoryInfo {
     }
 }
 
+impl From<PathBuf> for DirectoryInfo {
+    fn from(value: PathBuf) -> Self {
+        Self::from(&hash_directory(&value))
+    }
+}
+
 /// Results from comparing two paths.
 struct CompareResult {
     // TODO: Add a member for identical files?
@@ -210,13 +216,11 @@ fn main() {
     // TODO: Progress bar of some sort?
     let args = Arguments::parse();
     println!("Computing hashes for first path");
-    let first_dir_hashes = hash_directory(&args.first_path);
-    let first_dir_info = DirectoryInfo::from(&first_dir_hashes);
+    let first_dir_info = DirectoryInfo::from(args.first_path);
 
     if let Some(second_dir) = args.second_path {
         println!("Computing hashes for second path");
-        let second_dir_hashes = hash_directory(&second_dir);
-        let second_dir_info = DirectoryInfo::from(&second_dir_hashes);
+        let second_dir_info = DirectoryInfo::from(second_dir);
 
         CompareResult::new(&first_dir_info, &second_dir_info).print_results();
     } else {
