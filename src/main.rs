@@ -92,11 +92,11 @@ fn hash_directory(directory: &PathBuf) -> Vec<FileHash> {
         // Which will speed up parsing
         .collect::<Vec<Result<DirEntry, Error>>>()
         .par_iter()
-        .progress()
         .map(|entry: &Result<DirEntry, Error>| {
             let path = PathBuf::from(entry.as_ref().unwrap().path());
             FileHash::new(path, directory).unwrap()
         })
+        .progress()
         .collect()
 }
 
