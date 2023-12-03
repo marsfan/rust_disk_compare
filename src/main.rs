@@ -45,7 +45,7 @@ impl FileHash {
         };
         // If the provided path is not the base path, strip the base path
         let filepath = if filepath.eq(base_path) {
-            filepath
+            PathBuf::new()
         } else {
             filepath.strip_prefix(base_path)?.to_path_buf()
         };
@@ -116,6 +116,22 @@ struct PathInfo {
     pub paths: HashSet<String>,
 }
 
+impl PathInfo {
+    /// Compute paths in this structure, but not a different one.
+    ///
+    /// # Arguments:
+    ///     * `other_info`: The other pathinfo object to compare against.
+    ///
+    /// # Returns:
+    ///     Vector of paths in this struct, but no the other one.
+    pub fn path_difference(&self, other_info: &PathInfo) -> Vec<String> {
+        self.paths
+            .difference(&other_info.paths)
+            .map(String::from)
+            .collect()
+    }
+}
+
 impl From<Vec<FileHash>> for PathInfo {
     fn from(value: Vec<FileHash>) -> Self {
         let hashmap: HashMap<String, String> = value
@@ -154,17 +170,8 @@ impl PathComparison {
     /// Returns:
     ///     Created `CompareResult` instance.
     pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
-        let first_not_second = first_info
-            .paths
-            .difference(&second_info.paths)
-            .map(String::from)
-            .collect();
-
-        let second_not_first = second_info
-            .paths
-            .difference(&first_info.paths)
-            .map(String::from)
-            .collect();
+        let first_not_second = first_info.path_difference(second_info);
+        let second_not_first = second_info.path_difference(second_info);
 
         // Use filter_map to return the string only for entries where
         // it exists in the other path, but has a different hash.
@@ -213,7 +220,7 @@ impl PathComparison {
 
 fn main() {
     // TODO: Parallelize first and second paths?
-    // TODO: Progress bar of some sort?
+    // TODO: non-panicking error messages, esp for non existant files
     let args = Arguments::parse();
     println!("Computing hashes for first path");
     let first_path_info = PathInfo::from(args.first_path);
