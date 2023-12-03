@@ -78,7 +78,7 @@ impl FileHash {
     /// Returns:
     ///     File hash as a string
     fn hash_string(&self) -> String {
-        // This is more performance than using map and format!
+        // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
         self.hash.iter().fold(String::new(), |mut output, digit| {
             write!(output, "{digit:x}").unwrap();
