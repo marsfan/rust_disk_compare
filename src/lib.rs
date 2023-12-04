@@ -266,6 +266,9 @@ mod tests {
         /// Path to dir1
         dir1_path: PathBuf,
 
+        /// Path to dir2
+        dir2_path: PathBuf,
+
         /// Path to file1
         file1_path: PathBuf,
 
@@ -301,6 +304,7 @@ mod tests {
                     "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
                 ),
                 dir1_path: PathBuf::from("test_files/dir1"),
+                dir2_path: PathBuf::from("test_files/dir2"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
                 test_files_dir: PathBuf::from("test_files"),
             }
@@ -511,6 +515,16 @@ mod tests {
             };
             let result = PathInfo::from(test_data.dir1_path);
             assert_eq!(result, expected);
+        }
+
+        /// Test the `path_difference` method
+        #[test]
+        fn test_path_difference() {
+            let test_data = TestData::new();
+            let dir1_info = PathInfo::from(test_data.dir1_path);
+            let dir2_info = PathInfo::from(test_data.dir2_path);
+            let difference = dir1_info.path_difference(&dir2_info);
+            assert_eq!(difference, vec![String::from("file1.txt")]);
         }
     }
 }
