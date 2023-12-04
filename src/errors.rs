@@ -22,6 +22,13 @@ pub enum ToolError {
         filepath: String,
     },
 
+    /// Indicates the given path is not a file
+    #[error("The given path is not a file: {filepath}")]
+    NotAFileError {
+        /// The path that is not a file.
+        filepath: String,
+    },
+
     /// Indicates something went wrong copying file contents into the hasher
     #[error("Error reading file bytes into hasher")]
     ByteCopyError(#[from] io::Error),

@@ -62,6 +62,11 @@ impl FileHash {
     /// # Arguments
     /// * `filepath`: Path to the file to hash.
     fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
+        if !filepath.is_file() {
+            return Err(ToolError::NotAFileError {
+                filepath: filepath.display().to_string(),
+            });
+        }
         let mut hasher = Sha256::new();
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
             kind: error.kind(),
@@ -277,7 +282,7 @@ mod tests {
         /// Test the `hash_file` method on a directory
         #[test]
         #[should_panic(
-            expected = "called `Result::unwrap()` on an `Err` value: FileReadError { kind: PermissionDenied, filepath: \"test_files/dir1\" }"
+            expected = "called `Result::unwrap()` on an `Err` value: NotAFileError { filepath: \"test_files/dir1\" }"
         )]
         fn test_hashfile_on_dir() {
             let test_data = TestData::new();
