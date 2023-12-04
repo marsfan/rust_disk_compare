@@ -372,7 +372,7 @@ mod tests {
             );
         }
 
-        /// Test creation on file where file == base_path
+        /// Test creation on file where `filepath` == `base_path`
         #[test]
         fn test_create_file_is_base() {
             let test_data = TestData::new();
@@ -398,7 +398,7 @@ mod tests {
     }
 
     mod test_path_info {
-        use std::{collections::HashSet, path::PathBuf};
+        use std::path::PathBuf;
 
         use crate::{FileHash, PathInfo};
 
