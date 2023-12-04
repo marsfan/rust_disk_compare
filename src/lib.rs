@@ -100,6 +100,7 @@ impl FileHash {
 }
 
 /// Information about a scanned path.
+#[derive(Debug, PartialEq, Eq)]
 pub struct PathInfo {
     /// Hashmap of all files and their hashes.
     hashmap: HashMap<String, String>,
@@ -371,6 +372,21 @@ mod tests {
             );
         }
 
+        /// Test creation on file where file == base_path
+        #[test]
+        fn test_create_file_is_base() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path, &test_data.file1_path).unwrap();
+
+            assert_eq!(
+                result,
+                FileHash {
+                    filepath: test_data.file1_path,
+                    hash: test_data.file1_hash,
+                }
+            );
+        }
+
         /// Test the `hash_string` method
         #[test]
         fn test_hash_str() {
@@ -382,7 +398,7 @@ mod tests {
     }
 
     mod test_path_info {
-        use std::path::PathBuf;
+        use std::{collections::HashSet, path::PathBuf};
 
         use crate::{FileHash, PathInfo};
 
@@ -425,8 +441,76 @@ mod tests {
             assert_eq!(results, expected);
         }
 
-        // /// Test creating from a vec of hashes.
-        // #[test]
-        // fn test_from_vec{}
+        /// Test creating from a vec of hashes.
+        #[test]
+        fn test_from_vec() {
+            let test_data = TestData::new();
+            let input = vec![
+                FileHash {
+                    filepath: PathBuf::from(""),
+                    hash: Vec::new(),
+                },
+                FileHash {
+                    filepath: PathBuf::from("file1.txt"),
+                    hash: test_data.file1_hash,
+                },
+                FileHash {
+                    filepath: PathBuf::from("file2.txt"),
+                    hash: test_data.file2_hash,
+                },
+                FileHash {
+                    filepath: PathBuf::from("file4.txt"),
+                    hash: test_data.file4_hash,
+                },
+            ];
+            let expected = PathInfo {
+                hashmap: vec![
+                    (String::new(), String::new()),
+                    (String::from("file1.txt"), test_data.file1_hash_str),
+                    (String::from("file2.txt"), test_data.file2_hash_string),
+                    (String::from("file4.txt"), test_data.file4_hash_str),
+                ]
+                .into_iter()
+                .collect(),
+                paths: vec![
+                    String::new(),
+                    String::from("file1.txt"),
+                    String::from("file2.txt"),
+                    String::from("file4.txt"),
+                ]
+                .into_iter()
+                .collect(),
+            };
+
+            let result = PathInfo::from(input);
+
+            assert_eq!(result, expected);
+        }
+
+        /// Test creating from a path.
+        #[test]
+        fn test_from_path() {
+            let test_data = TestData::new();
+            let expected = PathInfo {
+                hashmap: vec![
+                    (String::new(), String::new()),
+                    (String::from("file1.txt"), test_data.file1_hash_str),
+                    (String::from("file2.txt"), test_data.file2_hash_string),
+                    (String::from("file4.txt"), test_data.file4_hash_str),
+                ]
+                .into_iter()
+                .collect(),
+                paths: vec![
+                    String::new(),
+                    String::from("file1.txt"),
+                    String::from("file2.txt"),
+                    String::from("file4.txt"),
+                ]
+                .into_iter()
+                .collect(),
+            };
+            let result = PathInfo::from(test_data.dir1_path);
+            assert_eq!(result, expected);
+        }
     }
 }
