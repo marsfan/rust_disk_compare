@@ -324,7 +324,7 @@ mod tests {
                     filepath: PathBuf::from(""),
                     hash: Vec::new(),
                 }
-            )
+            );
         }
 
         /// Test the `hash_string` method
@@ -333,7 +333,7 @@ mod tests {
             let test_data = TestData::new();
             let hash_object = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
             let hash_string = hash_object.hash_string();
-            assert_eq!(hash_string, test_data.file1_hash_str,)
+            assert_eq!(hash_string, test_data.file1_hash_str);
         }
     }
 }
