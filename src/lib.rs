@@ -529,4 +529,22 @@ mod tests {
             assert_eq!(difference, vec![String::from("file1.txt")]);
         }
     }
+    mod test_path_difference {
+        use crate::{PathComparison, PathInfo};
+
+        use super::TestData;
+
+        /// Test creation of the struct
+        #[test]
+        fn test_creation() {
+            let test_data = TestData::new();
+            let comparsion = PathComparison::new(
+                &PathInfo::from(test_data.dir1_path),
+                &PathInfo::from(test_data.dir2_path),
+            );
+            assert_eq!(comparsion.first_not_second, vec![String::from("file1.txt")]);
+            assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
+            assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
+        }
+    }
 }
