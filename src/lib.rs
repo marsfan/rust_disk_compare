@@ -33,12 +33,12 @@ struct FileHash {
 impl FileHash {
     /// Create the new hash from the given path.
     ///
-    /// Arguments
-    ///     * `filepath`: The path to the file to hash.
-    ///     * `base_path`: The base path the files should be relative to.
+    /// # Arguments
+    /// * `filepath`: The path to the file to hash.
+    /// * `base_path`: The base path the files should be relative to.
     ///
-    /// Returns:
-    ///     The created `FileHash` instance.
+    /// # Returns:
+    /// The created `FileHash` instance.
     pub fn new(filepath: &PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
         let hash = if filepath.is_file() {
@@ -58,8 +58,8 @@ impl FileHash {
 
     /// Compute the hash of the given file
     ///
-    /// Arguments
-    ///     * `filepath`: Path to the file to hash.
+    /// # Arguments
+    /// * `filepath`: Path to the file to hash.
     fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
         let mut hasher = Sha256::new();
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
@@ -78,8 +78,8 @@ impl FileHash {
 
     /// Get the file hash as a string
     ///
-    /// Returns:
-    ///     File hash as a string
+    /// # Returns:
+    /// File hash as a string
     fn hash_string(&self) -> String {
         // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
@@ -92,8 +92,8 @@ impl FileHash {
 
 /// Compute hashes of all files in the given path.
 ///
-/// Arguments:
-///     * `base_path`: The path to comptue the hashes of.
+/// # Arguments:
+/// * `base_path`: The path to comptue the hashes of.
 fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
     WalkDir::new(base_path)
         .into_iter()
@@ -123,10 +123,10 @@ impl PathInfo {
     /// Compute paths in this structure, but not a different one.
     ///
     /// # Arguments:
-    ///     * `other_info`: The other pathinfo object to compare against.
+    /// * `other_info`: The other pathinfo object to compare against.
     ///
     /// # Returns:
-    ///     Vector of paths in this struct, but no the other one.
+    /// Vector of paths in this struct, but no the other one.
     fn path_difference(&self, other_info: &PathInfo) -> Vec<String> {
         self.paths
             .difference(&other_info.paths)
@@ -173,12 +173,12 @@ pub struct PathComparison {
 impl PathComparison {
     /// Compute comparasion results
     ///
-    /// Arguments:
-    ///     * `first_info`: The first paths's info
-    ///     * `second_info`: The second paths's info
+    /// # Arguments:
+    /// * `first_info`: The first paths's info
+    /// * `second_info`: The second paths's info
     ///
-    /// Returns:
-    ///     Created `CompareResult` instance.
+    /// # Returns:
+    /// Created `CompareResult` instance.
     #[must_use]
     pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
         let first_not_second = first_info.path_difference(second_info);
@@ -216,9 +216,9 @@ impl PathComparison {
 
     /// Print the given info line and vector values if the vector length > 0
     ///
-    /// Arguments:
-    ///     * `description`: The description text to print at the start
-    ///     * `files`: The vector of the files to print out.
+    /// # Arguments:
+    /// * `description`: The description text to print at the start
+    /// * `files`: The vector of the files to print out.
     fn print_vec(description: &str, files: &Vec<String>) {
         if !files.is_empty() {
             println!("{description}");
