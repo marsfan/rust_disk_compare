@@ -96,25 +96,6 @@ impl FileHash {
     }
 }
 
-/// Compute hashes of all files in the given path.
-///
-/// # Arguments:
-/// * `base_path`: The path to comptue the hashes of.
-fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
-    WalkDir::new(base_path)
-        .into_iter()
-        // FIXME: See if we can find a way to not need an intermediate collect
-        // Which will speed up parsing
-        .collect::<Vec<Result<DirEntry, Error>>>()
-        .par_iter()
-        .map(|entry: &Result<DirEntry, Error>| {
-            let path = PathBuf::from(entry.as_ref().unwrap().path());
-            FileHash::new(&path, base_path).unwrap()
-        })
-        .progress()
-        .collect()
-}
-
 /// Information about a scanned path.
 pub struct PathInfo {
     /// Hashmap of all files and their hashes.
@@ -146,6 +127,25 @@ impl PathInfo {
             println!("{path}:\t{hash}");
         }
     }
+
+    /// Compute hashes of all files in the given path.
+    ///
+    /// # Arguments:
+    /// * `base_path`: The path to comptue the hashes of.
+    fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
+        WalkDir::new(base_path)
+            .into_iter()
+            // FIXME: See if we can find a way to not need an intermediate collect
+            // Which will speed up parsing
+            .collect::<Vec<Result<DirEntry, Error>>>()
+            .par_iter()
+            .map(|entry: &Result<DirEntry, Error>| {
+                let path = PathBuf::from(entry.as_ref().unwrap().path());
+                FileHash::new(&path, base_path).unwrap()
+            })
+            .progress()
+            .collect()
+    }
 }
 
 impl From<Vec<FileHash>> for PathInfo {
@@ -161,7 +161,7 @@ impl From<Vec<FileHash>> for PathInfo {
 
 impl From<PathBuf> for PathInfo {
     fn from(value: PathBuf) -> Self {
-        Self::from(hash_path(&value))
+        Self::from(Self::hash_path(&value))
     }
 }
 
