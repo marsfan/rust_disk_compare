@@ -23,6 +23,7 @@ use sha2::{Digest, Sha256};
 use walkdir::{DirEntry, Error, WalkDir};
 
 /// A single file and its hash
+#[derive(PartialEq, Debug)]
 struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
@@ -84,7 +85,7 @@ impl FileHash {
         // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
         self.hash.iter().fold(String::new(), |mut output, digit| {
-            write!(output, "{digit:x}").unwrap();
+            write!(output, "{digit:02x}").unwrap();
             output
         })
     }
@@ -225,6 +226,114 @@ impl PathComparison {
             for file in files {
                 println!("\t{file}");
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    /// Info used in tests
+    pub struct TestData {
+        /// Hash for file1.txt
+        file1_hash: Vec<u8>,
+        file1_hash_str: String,
+        dir1_path: PathBuf,
+        file1_path: PathBuf,
+        dir3_path: PathBuf,
+    }
+
+    impl TestData {
+        pub fn new() -> Self {
+            Self {
+                file1_hash: vec![
+                    0xe4, 0xc5, 0x29, 0xa9, 0x0c, 0x31, 0xa1, 0x00, 0x16, 0xd7, 0x33, 0x4d, 0x27,
+                    0x18, 0xc1, 0x0c, 0x0b, 0xd3, 0x01, 0x17, 0x0f, 0xea, 0x0f, 0x55, 0x45, 0x70,
+                    0xb2, 0xf2, 0x98, 0xec, 0xe9, 0x7f,
+                ],
+                file1_hash_str: String::from(
+                    "e4c529a90c31a10016d7334d2718c10c0bd301170fea0f554570b2f298ece97f",
+                ),
+                dir1_path: PathBuf::from("test_files/dir1"),
+                file1_path: PathBuf::from("test_files/dir1/file1.txt"),
+                dir3_path: PathBuf::from("test_files/dir1/dir3"),
+            }
+        }
+    }
+
+    mod test_file_hash {
+        use crate::{tests::TestData, FileHash};
+        use std::path::PathBuf;
+
+        /// Test the `hash_file` method
+        #[test]
+        fn test_hash_file() {
+            let test_data = TestData::new();
+            let hash = FileHash::hash_file(&test_data.file1_path).unwrap();
+            assert_eq!(hash, test_data.file1_hash);
+        }
+
+        /// Test the `hash_file` method on a directory
+        #[test]
+        #[should_panic(
+            expected = "called `Result::unwrap()` on an `Err` value: FileReadError { kind: PermissionDenied, filepath: \"test_files/dir1\" }"
+        )]
+        fn test_hashfile_on_dir() {
+            let test_data = TestData::new();
+            FileHash::hash_file(&test_data.dir1_path).unwrap();
+        }
+
+        /// Test creation and proper hashing.
+        #[test]
+        fn test_creation() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
+
+            assert_eq!(
+                result,
+                FileHash {
+                    filepath: PathBuf::from("file1.txt"),
+                    hash: test_data.file1_hash,
+                }
+            );
+        }
+
+        /// Test creation on an empty dir inside the base dir
+        #[test]
+        fn test_creation_empty_dir() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.dir3_path, &test_data.dir1_path).unwrap();
+            assert_eq!(
+                result,
+                FileHash {
+                    filepath: PathBuf::from("dir3"),
+                    hash: Vec::new(),
+                },
+            );
+        }
+
+        /// Test creation on the base dir
+        #[test]
+        fn test_creation_base_dir() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.dir1_path, &test_data.dir1_path).unwrap();
+            assert_eq!(
+                result,
+                FileHash {
+                    filepath: PathBuf::from(""),
+                    hash: Vec::new(),
+                }
+            )
+        }
+
+        /// Test the `hash_string` method
+        #[test]
+        fn test_hash_str() {
+            let test_data = TestData::new();
+            let hash_object = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
+            let hash_string = hash_object.hash_string();
+            assert_eq!(hash_string, test_data.file1_hash_str,)
         }
     }
 }
