@@ -47,10 +47,13 @@ impl FileHash {
         } else {
             Vec::new()
         };
-        // If the provided path is not the base path, strip the base path
-        let filepath = if filepath.eq(base_path) {
+
+        let filepath = if filepath.eq(base_path) && filepath.is_file() {
+            PathBuf::from(filepath)
+        } else if filepath.eq(base_path) {
             PathBuf::new()
         } else {
+            // If the provided path is not the base path, strip the base path
             filepath.strip_prefix(base_path)?.to_path_buf()
         };
 
@@ -243,9 +246,29 @@ mod tests {
     pub struct TestData {
         /// Hash for file1.txt
         file1_hash: Vec<u8>,
+
+        /// String of file1.txt hash
         file1_hash_str: String,
+
+        /// Hash for file2.txt
+        file2_hash: Vec<u8>,
+
+        /// String of file2.txt hash
+        file2_hash_string: String,
+
+        /// Hash for file4.txt
+        file4_hash: Vec<u8>,
+
+        /// String of file4.txt hash
+        file4_hash_str: String,
+
+        /// Path to dir1
         dir1_path: PathBuf,
+
+        /// Path to file1
         file1_path: PathBuf,
+
+        /// Path to test_files
         test_files_dir: PathBuf,
     }
 
@@ -259,6 +282,22 @@ mod tests {
                 ],
                 file1_hash_str: String::from(
                     "e4c529a90c31a10016d7334d2718c10c0bd301170fea0f554570b2f298ece97f",
+                ),
+                file2_hash: vec![
+                    0xa1, 0x02, 0x8f, 0x79, 0x3b, 0x0a, 0xae, 0x9c, 0x51, 0xfa, 0x83, 0xe3, 0x99,
+                    0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
+                    0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
+                ],
+                file2_hash_string: String::from(
+                    "a1028f793b0aae9c51fa83e39975b254d78947620868f09e4a648e73486a623c",
+                ),
+                file4_hash: vec![
+                    0xe9, 0x97, 0x19, 0x69, 0xe0, 0xab, 0x8b, 0x9c, 0x44, 0xe0, 0x0e, 0x0e, 0x80,
+                    0xc4, 0xad, 0xe9, 0xbe, 0xa5, 0x69, 0x20, 0x5e, 0x42, 0xc8, 0xde, 0xdc, 0xf7,
+                    0x67, 0xf2, 0xef, 0x26, 0x85, 0xb0,
+                ],
+                file4_hash_str: String::from(
+                    "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
                 ),
                 dir1_path: PathBuf::from("test_files/dir1"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
@@ -340,5 +379,54 @@ mod tests {
             let hash_string = hash_object.hash_string();
             assert_eq!(hash_string, test_data.file1_hash_str);
         }
+    }
+
+    mod test_path_info {
+        use std::path::PathBuf;
+
+        use crate::{FileHash, PathInfo};
+
+        use super::TestData;
+
+        /// Test the `hash_path` method
+        #[test]
+        fn test_hash_path() {
+            let test_data = TestData::new();
+            let results = PathInfo::hash_path(&test_data.dir1_path);
+            let expected = vec![
+                FileHash {
+                    filepath: PathBuf::from(""),
+                    hash: Vec::new(),
+                },
+                FileHash {
+                    filepath: PathBuf::from("file1.txt"),
+                    hash: test_data.file1_hash,
+                },
+                FileHash {
+                    filepath: PathBuf::from("file2.txt"),
+                    hash: test_data.file2_hash,
+                },
+                FileHash {
+                    filepath: PathBuf::from("file4.txt"),
+                    hash: test_data.file4_hash,
+                },
+            ];
+            assert_eq!(results, expected);
+        }
+        /// Test the `hash_path` method when the path is a file
+        #[test]
+        fn test_hash_path_file() {
+            let test_data = TestData::new();
+            let results = PathInfo::hash_path(&test_data.file1_path);
+            let expected = vec![FileHash {
+                filepath: PathBuf::from("test_files/dir1/file1.txt"),
+                hash: test_data.file1_hash,
+            }];
+            assert_eq!(results, expected);
+        }
+
+        // /// Test creating from a vec of hashes.
+        // #[test]
+        // fn test_from_vec{}
     }
 }
