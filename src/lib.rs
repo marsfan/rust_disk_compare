@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 use walkdir::{DirEntry, Error, WalkDir};
 
 /// A single file and its hash
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Eq, PartialOrd, Ord)]
 struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
@@ -412,8 +412,9 @@ mod tests {
         #[test]
         fn test_hash_path() {
             let test_data = TestData::new();
-            let results = PathInfo::hash_path(&test_data.dir1_path);
-            let expected = vec![
+            let mut results = PathInfo::hash_path(&test_data.dir1_path);
+            results.sort();
+            let mut expected = vec![
                 FileHash {
                     filepath: PathBuf::from(""),
                     hash: Vec::new(),
@@ -431,6 +432,7 @@ mod tests {
                     hash: test_data.file4_hash,
                 },
             ];
+            expected.sort();
             assert_eq!(results, expected);
         }
         /// Test the `hash_path` method when the path is a file
