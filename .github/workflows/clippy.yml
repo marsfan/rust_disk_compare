@@ -1,0 +1,23 @@
+name: Rust Clippy
+
+on: [push]
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    run_clippy:
+        name: Debug Build Clippy
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v4
+        - name: Clippy
+          run: cargo clippy --all --tests -- -D warnings
+
+    run_clippy_release:
+        name: Release Build Clippy
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v4
+        - name: Clippy
+          run: cargo clippy --all --tests --release -- -D warnings
