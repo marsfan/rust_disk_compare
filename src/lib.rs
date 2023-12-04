@@ -241,7 +241,7 @@ mod tests {
         file1_hash_str: String,
         dir1_path: PathBuf,
         file1_path: PathBuf,
-        dir3_path: PathBuf,
+        test_files_dir: PathBuf,
     }
 
     impl TestData {
@@ -257,7 +257,7 @@ mod tests {
                 ),
                 dir1_path: PathBuf::from("test_files/dir1"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
-                dir3_path: PathBuf::from("test_files/dir1/dir3"),
+                test_files_dir: PathBuf::from("test_files"),
             }
         }
     }
@@ -303,11 +303,11 @@ mod tests {
         #[test]
         fn test_creation_empty_dir() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.dir3_path, &test_data.dir1_path).unwrap();
+            let result = FileHash::new(&test_data.dir1_path, &test_data.test_files_dir).unwrap();
             assert_eq!(
                 result,
                 FileHash {
-                    filepath: PathBuf::from("dir3"),
+                    filepath: PathBuf::from("dir1"),
                     hash: Vec::new(),
                 },
             );
