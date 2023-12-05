@@ -139,8 +139,6 @@ impl PathInfo {
     fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
         WalkDir::new(base_path)
             .into_iter()
-            // FIXME: See if we can find a way to not need an intermediate collect
-            // Which will speed up parsing
             .collect::<Vec<Result<DirEntry, Error>>>()
             .par_iter()
             .map(|entry: &Result<DirEntry, Error>| {
