@@ -10,7 +10,6 @@ use disk_compare::{PathComparison, PathInfo};
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
 
 fn main() {
-    // TODO: Parallelize first and second paths?
     // TODO: non-panicking error messages, esp for non existant files
     let args = Arguments::parse();
     println!("Computing hashes for first path");
