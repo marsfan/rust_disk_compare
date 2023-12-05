@@ -253,7 +253,7 @@ mod tests {
         file2_hash: Vec<u8>,
 
         /// String of file2.txt hash
-        file2_hash_string: String,
+        file2_hash_str: String,
 
         /// Hash for file4.txt
         file4_hash: Vec<u8>,
@@ -290,7 +290,7 @@ mod tests {
                     0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
                     0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
                 ],
-                file2_hash_string: String::from(
+                file2_hash_str: String::from(
                     "a1028f793b0aae9c51fa83e39975b254d78947620868f09e4a648e73486a623c",
                 ),
                 file4_hash: vec![
@@ -471,7 +471,7 @@ mod tests {
                 hashmap: vec![
                     (String::new(), String::new()),
                     (String::from("file1.txt"), test_data.file1_hash_str),
-                    (String::from("file2.txt"), test_data.file2_hash_string),
+                    (String::from("file2.txt"), test_data.file2_hash_str),
                     (String::from("file4.txt"), test_data.file4_hash_str),
                 ]
                 .into_iter()
@@ -499,7 +499,7 @@ mod tests {
                 hashmap: vec![
                     (String::new(), String::new()),
                     (String::from("file1.txt"), test_data.file1_hash_str),
-                    (String::from("file2.txt"), test_data.file2_hash_string),
+                    (String::from("file2.txt"), test_data.file2_hash_str),
                     (String::from("file4.txt"), test_data.file4_hash_str),
                 ]
                 .into_iter()
