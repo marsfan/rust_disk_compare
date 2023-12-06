@@ -28,7 +28,7 @@ struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
     /// The file's hash
-    hash: Vec<u8>,
+    hash: String,
 }
 
 impl FileHash {
@@ -57,7 +57,10 @@ impl FileHash {
             filepath.strip_prefix(base_path)?.to_path_buf()
         };
 
-        Ok(Self { filepath, hash })
+        Ok(Self {
+            filepath,
+            hash: Self::hash_string(&hash),
+        })
     }
 
     /// Compute the hash of the given file
@@ -85,14 +88,17 @@ impl FileHash {
         Ok(hasher.finalize().to_vec())
     }
 
-    /// Get the file hash as a string
+    /// Convert the given vector hash to a string
     ///
-    /// # Returns:
-    /// File hash as a string
-    fn hash_string(&self) -> String {
+    /// Arguments:
+    /// * `hash`: The hash to convert.
+    ///
+    /// Returns:
+    ///     The hash as a string.
+    fn hash_string(hash: &[u8]) -> String {
         // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
-        self.hash.iter().fold(String::new(), |mut output, digit| {
+        hash.iter().fold(String::new(), |mut output, digit| {
             write!(output, "{digit:02x}").unwrap();
             output
         })
@@ -154,7 +160,7 @@ impl From<Vec<FileHash>> for PathInfo {
     fn from(value: Vec<FileHash>) -> Self {
         let hashmap: HashMap<String, String> = value
             .iter()
-            .map(|entry| (entry.filepath.display().to_string(), entry.hash_string()))
+            .map(|entry| (entry.filepath.display().to_string(), entry.hash.clone()))
             .collect();
         let paths: HashSet<String> = hashmap.keys().cloned().collect();
         Self { hashmap, paths }
@@ -249,14 +255,8 @@ mod tests {
         /// String of file1.txt hash
         file1_hash_str: String,
 
-        /// Hash for file2.txt
-        file2_hash: Vec<u8>,
-
         /// String of file2.txt hash
         file2_hash_str: String,
-
-        /// Hash for file4.txt
-        file4_hash: Vec<u8>,
 
         /// String of file4.txt hash
         file4_hash_str: String,
@@ -285,19 +285,11 @@ mod tests {
                 file1_hash_str: String::from(
                     "e4c529a90c31a10016d7334d2718c10c0bd301170fea0f554570b2f298ece97f",
                 ),
-                file2_hash: vec![
-                    0xa1, 0x02, 0x8f, 0x79, 0x3b, 0x0a, 0xae, 0x9c, 0x51, 0xfa, 0x83, 0xe3, 0x99,
-                    0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
-                    0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
-                ],
+
                 file2_hash_str: String::from(
                     "a1028f793b0aae9c51fa83e39975b254d78947620868f09e4a648e73486a623c",
                 ),
-                file4_hash: vec![
-                    0xe9, 0x97, 0x19, 0x69, 0xe0, 0xab, 0x8b, 0x9c, 0x44, 0xe0, 0x0e, 0x0e, 0x80,
-                    0xc4, 0xad, 0xe9, 0xbe, 0xa5, 0x69, 0x20, 0x5e, 0x42, 0xc8, 0xde, 0xdc, 0xf7,
-                    0x67, 0xf2, 0xef, 0x26, 0x85, 0xb0,
-                ],
+
                 file4_hash_str: String::from(
                     "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
                 ),
@@ -341,7 +333,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash,
+                    hash: test_data.file1_hash_str,
                 }
             );
         }
@@ -355,7 +347,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from("dir1"),
-                    hash: Vec::new(),
+                    hash: String::new(),
                 },
             );
         }
@@ -369,7 +361,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from(""),
-                    hash: Vec::new(),
+                    hash: String::new(),
                 }
             );
         }
@@ -384,7 +376,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: test_data.file1_path,
-                    hash: test_data.file1_hash,
+                    hash: test_data.file1_hash_str,
                 }
             );
         }
@@ -394,7 +386,7 @@ mod tests {
         fn test_hash_str() {
             let test_data = TestData::new();
             let hash_object = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
-            let hash_string = hash_object.hash_string();
+            let hash_string = hash_object.hash;
             assert_eq!(hash_string, test_data.file1_hash_str);
         }
     }
@@ -415,19 +407,19 @@ mod tests {
             let mut expected = vec![
                 FileHash {
                     filepath: PathBuf::from(""),
-                    hash: Vec::new(),
+                    hash: String::new(),
                 },
                 FileHash {
                     filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash,
+                    hash: test_data.file1_hash_str,
                 },
                 FileHash {
                     filepath: PathBuf::from("file2.txt"),
-                    hash: test_data.file2_hash,
+                    hash: test_data.file2_hash_str,
                 },
                 FileHash {
                     filepath: PathBuf::from("file4.txt"),
-                    hash: test_data.file4_hash,
+                    hash: test_data.file4_hash_str,
                 },
             ];
             expected.sort();
@@ -440,7 +432,7 @@ mod tests {
             let results = PathInfo::hash_path(&test_data.file1_path);
             let expected = vec![FileHash {
                 filepath: PathBuf::from("test_files/dir1/file1.txt"),
-                hash: test_data.file1_hash,
+                hash: test_data.file1_hash_str,
             }];
             assert_eq!(results, expected);
         }
@@ -452,19 +444,19 @@ mod tests {
             let input = vec![
                 FileHash {
                     filepath: PathBuf::from(""),
-                    hash: Vec::new(),
+                    hash: String::new(),
                 },
                 FileHash {
                     filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash,
+                    hash: test_data.file1_hash_str.clone(),
                 },
                 FileHash {
                     filepath: PathBuf::from("file2.txt"),
-                    hash: test_data.file2_hash,
+                    hash: test_data.file2_hash_str.clone(),
                 },
                 FileHash {
                     filepath: PathBuf::from("file4.txt"),
-                    hash: test_data.file4_hash,
+                    hash: test_data.file4_hash_str.clone(),
                 },
             ];
             let expected = PathInfo {
