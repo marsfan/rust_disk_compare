@@ -147,12 +147,39 @@ impl PathInfo {
             .into_iter()
             .collect::<Vec<Result<DirEntry, Error>>>()
             .par_iter()
-            .map(|entry: &Result<DirEntry, Error>| {
-                let path = PathBuf::from(entry.as_ref().unwrap().path());
-                FileHash::new(&path, base_path).unwrap()
-            })
+            .map(|entry: &Result<DirEntry, Error>| PathInfo::mapped_function(entry, base_path))
             .progress()
             .collect()
+    }
+
+    // FIXME: Bubble error up further so we can print out all files that
+    // failed hashing at the end (outside of parallel loop)
+    // Will require modifying the hash_path function to return a
+    // vec of result instead of what it currently does.
+    /// Function that is called on each path to hash
+    ///
+    /// # Arguments:
+    /// * `entry`: The `WalkDir` `Result` to operate on
+    /// * `base_path`: The base path of the operation
+    ///
+    /// # Returns:
+    /// The created `FileHash` object. If the hash could not be computed,
+    /// the `FileHash` object will have an error message in the `hash` string.
+    fn mapped_function(entry: &Result<DirEntry, Error>, base_path: &PathBuf) -> FileHash {
+        match entry {
+            Ok(entry) => {
+                FileHash::new(&entry.path().to_path_buf(), base_path).unwrap() // FIXME: Remove unwrap
+            }
+            Err(error) => FileHash {
+                filepath: error
+                    .path()
+                    .unwrap()
+                    .strip_prefix(base_path)
+                    .unwrap()
+                    .to_path_buf(),
+                hash: format!("{error}"),
+            },
+        }
     }
 }
 
