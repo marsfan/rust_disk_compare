@@ -14,7 +14,7 @@ indicatif = { version = "0.17.7", features = ["rayon"] }
 md-5 = "0.10.6"
 rayon = "1.8.0"
 sha2 = "0.10.8"
-thiserror = "1.0.50"
+thiserror = "1.0.51"
 walkdir = "2.4.0"
 
 [lints.rust]
