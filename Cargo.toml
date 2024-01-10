@@ -9,7 +9,7 @@ categories = ["command-line-utilities"]
 repository = "https://www.github.com/marsfan/rust_disk_compare"
 
 [dependencies]
-clap = { version = "4.4.13", features = ["derive"] }
+clap = { version = "4.4.14", features = ["derive"] }
 indicatif = { version = "0.17.7", features = ["rayon"] }
 md-5 = "0.10.6"
 rayon = "1.8.0"
