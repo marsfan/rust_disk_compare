@@ -313,7 +313,7 @@ mod tests {
         /// Path to file1
         file1_path: PathBuf,
 
-        /// Path to test_files
+        /// Path to test files
         test_files_dir: PathBuf,
     }
 
