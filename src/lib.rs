@@ -250,9 +250,15 @@ impl PathComparison {
 
     /// Print the differencess to stdout
     pub fn print_results(&self) {
-        Self::print_vec("In first path, but not second", &self.first_not_second);
-        Self::print_vec("In second path, but not first:", &self.second_not_first);
-        Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+        // Print an extra newline
+        println!();
+        if self.any_differences() {
+            Self::print_vec("In first path, but not second", &self.first_not_second);
+            Self::print_vec("In second path, but not first:", &self.second_not_first);
+            Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+        } else {
+            println!("No differences found between supplied paths.");
+        }
     }
 
     /// Print the given info line and vector values if the vector length > 0
@@ -267,6 +273,16 @@ impl PathComparison {
                 println!("\t{file}");
             }
         }
+    }
+
+    /// Get if there are any differences found between supplied paths
+    ///
+    /// # Returns
+    /// Boolean indicating if any differences were found between the supplied paths.
+    fn any_differences(&self) -> bool {
+        (!self.first_not_second.is_empty())
+            || (!self.second_not_first.is_empty())
+            || (!self.different_hashes.is_empty())
     }
 }
 
