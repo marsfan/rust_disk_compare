@@ -10,7 +10,7 @@ repository = "https://www.github.com/marsfan/rust_disk_compare"
 
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
-indicatif = { version = "0.17.8", features = ["rayon"] }
+indicatif = { version = "0.17.11", features = ["rayon"] }
 md-5 = "0.10.6"
 rayon = "1.9.0"
 sha2 = "0.10.8"
