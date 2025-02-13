@@ -147,12 +147,39 @@ impl PathInfo {
             .into_iter()
             .collect::<Vec<Result<DirEntry, Error>>>()
             .par_iter()
-            .map(|entry: &Result<DirEntry, Error>| {
-                let path = PathBuf::from(entry.as_ref().unwrap().path());
-                FileHash::new(&path, base_path).unwrap()
-            })
+            .map(|entry: &Result<DirEntry, Error>| PathInfo::mapped_function(entry, base_path))
             .progress()
             .collect()
+    }
+
+    // FIXME: Bubble error up further so we can print out all files that
+    // failed hashing at the end (outside of parallel loop)
+    // Will require modifying the hash_path function to return a
+    // vec of result instead of what it currently does.
+    /// Function that is called on each path to hash
+    ///
+    /// # Arguments:
+    /// * `entry`: The `WalkDir` `Result` to operate on
+    /// * `base_path`: The base path of the operation
+    ///
+    /// # Returns:
+    /// The created `FileHash` object. If the hash could not be computed,
+    /// the `FileHash` object will have an error message in the `hash` string.
+    fn mapped_function(entry: &Result<DirEntry, Error>, base_path: &PathBuf) -> FileHash {
+        match entry {
+            Ok(entry) => {
+                FileHash::new(&entry.path().to_path_buf(), base_path).unwrap() // FIXME: Remove unwrap
+            }
+            Err(error) => FileHash {
+                filepath: error
+                    .path()
+                    .unwrap()
+                    .strip_prefix(base_path)
+                    .unwrap()
+                    .to_path_buf(),
+                hash: format!("{error}"),
+            },
+        }
     }
 }
 
@@ -223,9 +250,15 @@ impl PathComparison {
 
     /// Print the differencess to stdout
     pub fn print_results(&self) {
-        Self::print_vec("In first path, but not second", &self.first_not_second);
-        Self::print_vec("In second path, but not first:", &self.second_not_first);
-        Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+        // Print an extra newline
+        println!();
+        if self.any_differences() {
+            Self::print_vec("In first path, but not second", &self.first_not_second);
+            Self::print_vec("In second path, but not first:", &self.second_not_first);
+            Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+        } else {
+            println!("No differences found between supplied paths.");
+        }
     }
 
     /// Print the given info line and vector values if the vector length > 0
@@ -240,6 +273,16 @@ impl PathComparison {
                 println!("\t{file}");
             }
         }
+    }
+
+    /// Get if there are any differences found between supplied paths
+    ///
+    /// # Returns
+    /// Boolean indicating if any differences were found between the supplied paths.
+    fn any_differences(&self) -> bool {
+        (!self.first_not_second.is_empty())
+            || (!self.second_not_first.is_empty())
+            || (!self.different_hashes.is_empty())
     }
 }
 
@@ -270,7 +313,7 @@ mod tests {
         /// Path to file1
         file1_path: PathBuf,
 
-        /// Path to test_files
+        /// Path to test files
         test_files_dir: PathBuf,
     }
 
