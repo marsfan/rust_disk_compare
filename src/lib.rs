@@ -209,41 +209,65 @@ pub struct PathComparison {
     second_not_first: Vec<String>,
     /// Files in both, but with differing hashes.
     different_hashes: Vec<String>,
+    // Files in both, with matching hashes
+    // same_hashes: Vec<String>,
 }
 
 impl PathComparison {
     /// Compute comparasion results
     ///
     /// # Arguments:
-    /// * `first_info`: The first paths's info
-    /// * `second_info`: The second paths's info
+    /// * `first_path`: The first of the two paths to scan
+    /// * `second_path`: The second of the two paths to scan
     ///
     /// # Returns:
-    /// Created `CompareResult` instance.
-    #[must_use]
-    pub fn new(first_info: &PathInfo, second_info: &PathInfo) -> Self {
-        let first_not_second = first_info.path_difference(second_info);
-        let second_not_first = second_info.path_difference(first_info);
-
-        // Use filter_map to return the string only for entries where
-        // it exists in the other path, but has a different hash.
-        let different_hashes = first_info
-            .hashmap
-            .iter()
-            .filter_map(&|(filepath, hash)| {
-                if second_info.hashmap.contains_key(filepath)
-                    && second_info.hashmap.get(filepath) != Some(hash)
-                {
-                    Some(String::from(filepath))
-                } else {
-                    None
-                }
+    /// Created `PathComparison` instance.
+    pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
+        let first_files: Vec<PathBuf> = WalkDir::new(&first_path)
+            .into_iter()
+            .filter_map(|v| {
+                let path = v.unwrap().into_path();
+                if !path.is_dir() { Some(path) } else { None }
+            })
+            .collect();
+        let second_files: Vec<PathBuf> = WalkDir::new(&second_path)
+            .into_iter()
+            .filter_map(|v| {
+                let path = v.unwrap().into_path();
+                if !path.is_dir() { Some(path) } else { None }
             })
             .collect();
 
+        let first_rel = first_files
+            .iter()
+            .map(|v| v.strip_prefix(first_path).unwrap().to_path_buf());
+        let second_rel = second_files
+            .iter()
+            .map(|v| v.strip_prefix(second_path).unwrap().to_path_buf());
+
+        let first_set: HashSet<PathBuf> = first_rel.collect();
+        let second_set: HashSet<PathBuf> = second_rel.collect();
+
+        let first_not_second = first_set.difference(&second_set);
+        let second_not_first = second_set.difference(&first_set);
+
+        let in_both = first_set.intersection(&second_set);
+
+        let mut different_hashes = Vec::new();
+        for file in in_both {
+            let first_hash = FileHash::new(&first_path.join(file), first_path).unwrap();
+            let second_hash = FileHash::new(&second_path.join(file), second_path).unwrap();
+            if first_hash.hash != second_hash.hash {
+                different_hashes.push(file.display().to_string());
+            }
+        }
+
         Self {
-            first_not_second,
-            second_not_first,
+            first_not_second: first_not_second
+                .into_iter()
+                .map(|v| v.display().to_string())
+                .collect(),
+            second_not_first: second_not_first.map(|v| v.display().to_string()).collect(),
             different_hashes,
         }
     }
@@ -345,7 +369,7 @@ mod tests {
     }
 
     mod test_file_hash {
-        use crate::{tests::TestData, FileHash};
+        use crate::{FileHash, tests::TestData};
         use std::path::PathBuf;
 
         /// Test the `hash_file` method
@@ -563,7 +587,7 @@ mod tests {
         }
     }
     mod test_path_difference {
-        use crate::{PathComparison, PathInfo};
+        use crate::PathComparison;
 
         use super::TestData;
 
@@ -571,10 +595,7 @@ mod tests {
         #[test]
         fn test_creation() {
             let test_data = TestData::new();
-            let comparsion = PathComparison::new(
-                &PathInfo::from(test_data.dir1_path),
-                &PathInfo::from(test_data.dir2_path),
-            );
+            let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
             assert_eq!(comparsion.first_not_second, vec![String::from("file1.txt")]);
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
