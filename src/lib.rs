@@ -223,44 +223,42 @@ impl PathComparison {
     /// # Returns:
     /// Created `PathComparison` instance.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
-        let first_files: Vec<PathBuf> = WalkDir::new(&first_path)
+        let first_set: HashSet<PathBuf> = WalkDir::new(&first_path)
             .into_iter()
             .filter_map(|v| {
                 let path = v.unwrap().into_path();
-                if !path.is_dir() { Some(path) } else { None }
+                if !path.is_dir() {
+                    Some(path.strip_prefix(first_path).unwrap().to_path_buf())
+                } else {
+                    None
+                }
             })
             .collect();
-        let second_files: Vec<PathBuf> = WalkDir::new(&second_path)
+        let second_set: HashSet<PathBuf> = WalkDir::new(&second_path)
             .into_iter()
             .filter_map(|v| {
                 let path = v.unwrap().into_path();
-                if !path.is_dir() { Some(path) } else { None }
+                if !path.is_dir() {
+                    Some(path.strip_prefix(second_path).unwrap().to_path_buf())
+                } else {
+                    None
+                }
             })
             .collect();
-
-        let first_rel = first_files
-            .iter()
-            .map(|v| v.strip_prefix(first_path).unwrap().to_path_buf());
-        let second_rel = second_files
-            .iter()
-            .map(|v| v.strip_prefix(second_path).unwrap().to_path_buf());
-
-        let first_set: HashSet<PathBuf> = first_rel.collect();
-        let second_set: HashSet<PathBuf> = second_rel.collect();
 
         let first_not_second = first_set.difference(&second_set);
         let second_not_first = second_set.difference(&first_set);
-
         let in_both = first_set.intersection(&second_set);
 
-        let mut different_hashes = Vec::new();
-        for file in in_both {
+        let different_hashes = in_both.filter_map(|file| {
             let first_hash = FileHash::new(&first_path.join(file), first_path).unwrap();
             let second_hash = FileHash::new(&second_path.join(file), second_path).unwrap();
             if first_hash.hash != second_hash.hash {
-                different_hashes.push(file.display().to_string());
+                Some(file.display().to_string())
+            } else {
+                None
             }
-        }
+        });
 
         Self {
             first_not_second: first_not_second
@@ -268,7 +266,7 @@ impl PathComparison {
                 .map(|v| v.display().to_string())
                 .collect(),
             second_not_first: second_not_first.map(|v| v.display().to_string()).collect(),
-            different_hashes,
+            different_hashes: different_hashes.collect(),
         }
     }
 
