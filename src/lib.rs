@@ -200,6 +200,56 @@ impl From<PathBuf> for PathInfo {
     }
 }
 
+struct FilePair {
+    relative_path: PathBuf,
+    first_base: PathBuf,
+    second_base: PathBuf,
+
+    // TODO: Store hashes as bytes and only compute string on request?
+    first_hash: String,
+    second_hash: String,
+}
+
+impl FilePair {
+    pub fn new(relative_path: &PathBuf, first_base: &PathBuf, second_base: &PathBuf) -> Self {
+        let first_hash = FileHash::new(&first_base.join(relative_path), first_base)
+            .unwrap()
+            .hash;
+        let second_hash = FileHash::new(&second_base.join(relative_path), second_base)
+            .unwrap()
+            .hash;
+        Self {
+            relative_path: relative_path.to_path_buf(),
+            first_base: first_base.to_path_buf(),
+            second_base: second_base.to_path_buf(),
+            first_hash,
+            second_hash,
+        }
+    }
+
+    pub fn same_hash(&self) -> bool {
+        self.first_hash == self.second_hash
+    }
+
+    pub fn relative_path_string(&self) -> String {
+        self.relative_path.display().to_string()
+    }
+}
+
+trait ToRelativePath {
+    fn to_rel_path(&self, base_path: &PathBuf) -> Result<PathBuf, ToolError>;
+}
+
+impl ToRelativePath for DirEntry {
+    fn to_rel_path(&self, base_path: &PathBuf) -> Result<PathBuf, ToolError> {
+        Ok(self
+            .clone()
+            .into_path()
+            .strip_prefix(base_path)?
+            .to_path_buf())
+    }
+}
+
 /// Results from comparing two paths.
 pub struct PathComparison {
     // TODO: Add a member for identical files?
@@ -223,49 +273,50 @@ impl PathComparison {
     /// # Returns:
     /// Created `PathComparison` instance.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
-        let first_set: HashSet<PathBuf> = WalkDir::new(&first_path)
+        // Find all files (not folders) under the first path
+        let first_files: HashSet<PathBuf> = WalkDir::new(&first_path)
             .into_iter()
             .filter_map(|v| {
-                let path = v.unwrap().into_path();
-                if !path.is_dir() {
-                    Some(path.strip_prefix(first_path).unwrap().to_path_buf())
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let second_set: HashSet<PathBuf> = WalkDir::new(&second_path)
-            .into_iter()
-            .filter_map(|v| {
-                let path = v.unwrap().into_path();
-                if !path.is_dir() {
-                    Some(path.strip_prefix(second_path).unwrap().to_path_buf())
-                } else {
-                    None
-                }
+                let path = v.unwrap().to_rel_path(first_path).unwrap();
+                if !path.is_dir() { Some(path) } else { None }
             })
             .collect();
 
-        let first_not_second = first_set.difference(&second_set);
-        let second_not_first = second_set.difference(&first_set);
-        let in_both = first_set.intersection(&second_set);
+        // Find all files under thew second path.
+        let second_files: HashSet<PathBuf> = WalkDir::new(&second_path)
+            .into_iter()
+            .filter_map(|v| {
+                let path = v.unwrap().to_rel_path(second_path).unwrap();
+                if !path.is_dir() { Some(path) } else { None }
+            })
+            .collect();
 
-        let different_hashes = in_both.filter_map(|file| {
-            let first_hash = FileHash::new(&first_path.join(file), first_path).unwrap();
-            let second_hash = FileHash::new(&second_path.join(file), second_path).unwrap();
-            if first_hash.hash != second_hash.hash {
-                Some(file.display().to_string())
+        // Get sets of the files in one or the other path,
+        let first_not_second = first_files
+            .difference(&second_files)
+            .map(|v| v.display().to_string());
+        let second_not_first = second_files
+            .difference(&first_files)
+            .map(|v| v.display().to_string());
+
+        // For files in both paths, create a FilePair object.
+        // This will compute hashes for the files.
+        let in_both = first_files
+            .intersection(&second_files)
+            .map(|v| FilePair::new(v, first_path, second_path));
+
+        // Filter out just the files that have mismatched hashes
+        let different_hashes = in_both.filter_map(|v| {
+            if !v.same_hash() {
+                Some(v.relative_path_string())
             } else {
                 None
             }
         });
 
         Self {
-            first_not_second: first_not_second
-                .into_iter()
-                .map(|v| v.display().to_string())
-                .collect(),
-            second_not_first: second_not_first.map(|v| v.display().to_string()).collect(),
+            first_not_second: first_not_second.collect(),
+            second_not_first: second_not_first.collect(),
             different_hashes: different_hashes.collect(),
         }
     }
