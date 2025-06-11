@@ -13,11 +13,9 @@ fn main() {
     // TODO: non-panicking error messages, esp for non existant files
     let args = Arguments::parse();
     println!("Computing hashes for first path");
-    // let first_path_info = PathInfo::from(args.first_path);
 
     if let Some(second_path) = args.second_path {
         println!("Computing hashes for second path");
-        // let second_path_info = PathInfo::from(second_path);
 
         PathComparison::new(&args.first_path, &second_path).print_results();
     } else {
