@@ -202,8 +202,6 @@ impl From<PathBuf> for PathInfo {
 
 struct FilePair {
     relative_path: PathBuf,
-    first_base: PathBuf,
-    second_base: PathBuf,
 
     // TODO: Store hashes as bytes and only compute string on request?
     first_hash: String,
@@ -220,8 +218,6 @@ impl FilePair {
             .hash;
         Self {
             relative_path: relative_path.to_path_buf(),
-            first_base: first_base.to_path_buf(),
-            second_base: second_base.to_path_buf(),
             first_hash,
             second_hash,
         }
