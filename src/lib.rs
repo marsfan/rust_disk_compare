@@ -260,12 +260,13 @@ impl PathComparison {
 
         // For files in both paths, create a FilePair object.
         // This will compute hashes for the files.
-        let in_both = first_files
+        let in_both: Vec<FilePair> = first_files
             .intersection(&second_files)
-            .map(|v| FilePair::new(v, first_path, second_path));
+            .map(|v| FilePair::new(v, first_path, second_path))
+            .collect();
 
         // Filter out just the files that have mismatched hashes
-        let different_hashes = in_both.filter_map(|v| {
+        let different_hashes = in_both.par_iter().filter_map(|v| {
             if !v.same_hash() {
                 Some(v.relative_path_string())
             } else {
