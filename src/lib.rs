@@ -28,7 +28,7 @@ pub struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
     /// The file's hash
-    hash: String,
+    hash: Vec<u8>,
 }
 
 impl FileHash {
@@ -63,7 +63,7 @@ impl FileHash {
 
         Ok(Self {
             filepath,
-            hash: Self::hash_to_string(&hash),
+            hash, // hash: Self::hash_to_string(&hash),
         })
     }
 
@@ -105,7 +105,8 @@ impl FileHash {
     /// # Returns
     ///   The file's hash as a string of hexadecimal values
     pub fn get_hash_string(&self) -> String {
-        self.hash.clone()
+        Self::hash_to_string(&self.hash)
+        // self.hash.clone()
     }
 
     /// Convert the given vector hash to a string
@@ -168,6 +169,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
 }
 
 /// A pair of files that both have the the same relative path to their bases
+// FIXME: Needs tests
 struct FilePair {
     /// Relative path to both files
     relative_path: PathBuf,
@@ -364,19 +366,19 @@ mod tests {
     /// Info used in tests
     pub struct TestData {
         /// Hash for file1.txt
-        file1_hash: Vec<u8>,
-
-        /// String of file1.txt hash
         file1_hash_str: String,
 
+        /// String of file1.txt hash
+        file1_hash: Vec<u8>,
+
         /// String of file2.txt hash
-        file2_hash_str: String,
+        file2_hash: Vec<u8>,
 
         /// String of file4.txt hash
-        file4_hash_str: String,
+        file4_hash: Vec<u8>,
 
         /// String of file5.txt hash
-        file5_hash_str: String,
+        file5_hash: Vec<u8>,
 
         /// Path to dir1
         dir1_path: PathBuf,
@@ -394,25 +396,31 @@ mod tests {
     impl TestData {
         pub fn new() -> Self {
             Self {
-                file1_hash: vec![
-                    0xe4, 0xc5, 0x29, 0xa9, 0x0c, 0x31, 0xa1, 0x00, 0x16, 0xd7, 0x33, 0x4d, 0x27,
-                    0x18, 0xc1, 0x0c, 0x0b, 0xd3, 0x01, 0x17, 0x0f, 0xea, 0x0f, 0x55, 0x45, 0x70,
-                    0xb2, 0xf2, 0x98, 0xec, 0xe9, 0x7f,
-                ],
                 file1_hash_str: String::from(
                     "e4c529a90c31a10016d7334d2718c10c0bd301170fea0f554570b2f298ece97f",
                 ),
+                file1_hash: Vec::from([
+                    0xe4, 0xc5, 0x29, 0xa9, 0x0c, 0x31, 0xa1, 0x00, 0x16, 0xd7, 0x33, 0x4d, 0x27,
+                    0x18, 0xc1, 0x0c, 0x0b, 0xd3, 0x01, 0x17, 0x0f, 0xea, 0x0f, 0x55, 0x45, 0x70,
+                    0xb2, 0xf2, 0x98, 0xec, 0xe9, 0x7f,
+                ]),
 
-                file2_hash_str: String::from(
-                    "a1028f793b0aae9c51fa83e39975b254d78947620868f09e4a648e73486a623c",
-                ),
+                file2_hash: Vec::from([
+                    0xa1, 0x02, 0x8f, 0x79, 0x3b, 0x0a, 0xae, 0x9c, 0x51, 0xfa, 0x83, 0xe3, 0x99,
+                    0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
+                    0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
+                ]),
 
-                file4_hash_str: String::from(
-                    "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
-                ),
-                file5_hash_str: String::from(
-                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                ),
+                file4_hash: Vec::from([
+                    0xe9, 0x97, 0x19, 0x69, 0xe0, 0xab, 0x8b, 0x9c, 0x44, 0xe0, 0x0e, 0x0e, 0x80,
+                    0xc4, 0xad, 0xe9, 0xbe, 0xa5, 0x69, 0x20, 0x5e, 0x42, 0xc8, 0xde, 0xdc, 0xf7,
+                    0x67, 0xf2, 0xef, 0x26, 0x85, 0xb0,
+                ]),
+                file5_hash: Vec::from([
+                    0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99,
+                    0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95,
+                    0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55,
+                ]),
                 dir1_path: PathBuf::from("test_files/dir1"),
                 dir2_path: PathBuf::from("test_files/dir2"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
@@ -453,7 +461,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash_str,
+                    hash: test_data.file1_hash,
                 }
             );
         }
@@ -467,7 +475,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from("dir1"),
-                    hash: String::new(),
+                    hash: Vec::new(),
                 },
             );
         }
@@ -481,7 +489,7 @@ mod tests {
                 result,
                 FileHash {
                     filepath: PathBuf::from(""),
-                    hash: String::new(),
+                    hash: Vec::new(),
                 }
             );
         }
@@ -496,12 +504,12 @@ mod tests {
                 result,
                 FileHash {
                     filepath: test_data.file1_path,
-                    hash: test_data.file1_hash_str,
+                    hash: test_data.file1_hash,
                 }
             );
         }
 
-        /// Test creation and proper hashing.
+        /// Test get_rel_path method
         #[test]
         fn test_get_rel_path() {
             let test_data = TestData::new();
@@ -512,7 +520,7 @@ mod tests {
             assert_eq!(result, String::from("file1.txt"));
         }
 
-        /// Test creation and proper hashing.
+        /// Test get_hash_string method
         #[test]
         fn test_get_hash_string() {
             let test_data = TestData::new();
@@ -521,15 +529,6 @@ mod tests {
                 .get_hash_string();
 
             assert_eq!(result, test_data.file1_hash_str);
-        }
-
-        /// Test the `hash_string` method
-        #[test]
-        fn test_hash_str() {
-            let test_data = TestData::new();
-            let hash_object = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
-            let hash_string = hash_object.hash;
-            assert_eq!(hash_string, test_data.file1_hash_str);
         }
     }
 
@@ -541,19 +540,19 @@ mod tests {
         let expected = vec![
             FileHash {
                 filepath: PathBuf::from("file1.txt"),
-                hash: test_data.file1_hash_str,
+                hash: test_data.file1_hash,
             },
             FileHash {
                 filepath: PathBuf::from("file2.txt"),
-                hash: test_data.file2_hash_str,
+                hash: test_data.file2_hash,
             },
             FileHash {
                 filepath: PathBuf::from("file4.txt"),
-                hash: test_data.file4_hash_str,
+                hash: test_data.file4_hash,
             },
             FileHash {
                 filepath: PathBuf::from("subdir\\file5.txt"),
-                hash: test_data.file5_hash_str,
+                hash: test_data.file5_hash,
             },
         ];
         assert_eq!(results, expected)
