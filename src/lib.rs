@@ -8,7 +8,7 @@
 pub mod cli;
 pub mod errors;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::Write;
 use std::fs::File;
 use std::io;
@@ -20,11 +20,11 @@ use indicatif::ParallelProgressIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::prelude::ParallelIterator;
 use sha2::{Digest, Sha256};
-use walkdir::{DirEntry, Error, WalkDir};
+use walkdir::{DirEntry, WalkDir};
 
 /// A single file and its hash
 #[derive(PartialEq, Debug, Eq, PartialOrd, Ord)]
-struct FileHash {
+pub struct FileHash {
     /// The path to the file that was hashed
     filepath: PathBuf,
     /// The file's hash
@@ -59,7 +59,7 @@ impl FileHash {
 
         Ok(Self {
             filepath,
-            hash: Self::hash_string(&hash),
+            hash: Self::hash_to_string(&hash),
         })
     }
 
@@ -88,14 +88,30 @@ impl FileHash {
         Ok(hasher.finalize().to_vec())
     }
 
+    /// Get the relative path to the file as a string
+    ///
+    /// # Returns
+    ///     The relative file path as a string
+    pub fn get_rel_path(&self) -> String {
+        self.filepath.display().to_string()
+    }
+
+    /// Get the file hash represented as a string
+    ///
+    /// # Returns
+    ///     The file's hash as a string of hexadecimal values
+    pub fn get_hash_string(&self) -> String {
+        self.hash.clone()
+    }
+
     /// Convert the given vector hash to a string
     ///
     /// Arguments:
-    /// * `hash`: The hash to convert.
+    ///   - `hash`: The hash to convert.
     ///
     /// Returns:
-    ///     The hash as a string.
-    fn hash_string(hash: &[u8]) -> String {
+    ///   The hash as a string.
+    fn hash_to_string(hash: &[u8]) -> String {
         // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
         hash.iter().fold(String::new(), |mut output, digit| {
@@ -105,99 +121,52 @@ impl FileHash {
     }
 }
 
-/// Information about a scanned path.
-#[derive(Debug, PartialEq, Eq)]
-pub struct PathInfo {
-    /// Hashmap of all files and their hashes.
-    hashmap: HashMap<String, String>,
-
-    /// Set of all scanned filepaths.
-    /// Corresponds to the keys in the hashmap.
-    paths: HashSet<String>,
+/// Recursively find all files in a directory
+///
+/// # Arguments
+///   * `base`: The directory to search
+///
+/// # Returns
+///   Iterator that yields all files in the given directory
+fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
+    WalkDir::new(base).into_iter().filter_map(|v| {
+        let entry = v.unwrap();
+        let path = entry.to_rel_path(base).unwrap();
+        if !entry.file_type().is_dir() {
+            Some(path)
+        } else {
+            None
+        }
+    })
 }
 
-impl PathInfo {
-    /// Compute paths in this structure, but not a different one.
-    ///
-    /// # Arguments:
-    /// * `other_info`: The other pathinfo object to compare against.
-    ///
-    /// # Returns:
-    /// Vector of paths in this struct, but no the other one.
-    fn path_difference(&self, other_info: &PathInfo) -> Vec<String> {
-        self.paths
-            .difference(&other_info.paths)
-            .map(String::from)
-            .collect()
-    }
-
-    /// Print all of the files and their hashes to stdout.
-    pub fn print_hashes(&self) {
-        for (path, hash) in &self.hashmap {
-            println!("{path}:\t{hash}");
-        }
-    }
-
-    /// Compute hashes of all files in the given path.
-    ///
-    /// # Arguments:
-    /// * `base_path`: The path to comptue the hashes of.
-    fn hash_path(base_path: &PathBuf) -> Vec<FileHash> {
-        WalkDir::new(base_path)
-            .into_iter()
-            .collect::<Vec<Result<DirEntry, Error>>>()
-            .par_iter()
-            .map(|entry: &Result<DirEntry, Error>| PathInfo::mapped_function(entry, base_path))
-            .progress()
-            .collect()
-    }
-
+/// Compute hashes for all files in a directory, recursively
+///
+/// # Arguments
+///   * `base`: The directory to search through
+///
+/// # Returns
+///   Vector of `FileHash` objects for all files found recursively in the directory
+pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
     // FIXME: Bubble error up further so we can print out all files that
     // failed hashing at the end (outside of parallel loop)
     // Will require modifying the hash_path function to return a
     // vec of result instead of what it currently does.
-    /// Function that is called on each path to hash
-    ///
-    /// # Arguments:
-    /// * `entry`: The `WalkDir` `Result` to operate on
-    /// * `base_path`: The base path of the operation
-    ///
-    /// # Returns:
-    /// The created `FileHash` object. If the hash could not be computed,
-    /// the `FileHash` object will have an error message in the `hash` string.
-    fn mapped_function(entry: &Result<DirEntry, Error>, base_path: &PathBuf) -> FileHash {
-        match entry {
-            Ok(entry) => {
-                FileHash::new(&entry.path().to_path_buf(), base_path).unwrap() // FIXME: Remove unwrap
-            }
-            Err(error) => FileHash {
-                filepath: error
-                    .path()
-                    .unwrap()
-                    .strip_prefix(base_path)
-                    .unwrap()
-                    .to_path_buf(),
-                hash: format!("{error}"),
-            },
-        }
-    }
-}
+    let mut hashes: Vec<FileHash> = gather_paths(base)
+        .collect::<Vec<PathBuf>>()
+        .par_iter()
+        .map(|file| {
+            FileHash::new(&base.join(file), base).unwrap()
+            // (
+            //     file.display().to_string(),
+            //     FileHash::new(&base.join(file), base).unwrap().hash,
+            // )
+        })
+        .progress()
+        .collect();
 
-impl From<Vec<FileHash>> for PathInfo {
-    fn from(value: Vec<FileHash>) -> Self {
-        let hashmap: HashMap<String, String> = value
-            .iter()
-            .map(|entry| (entry.filepath.display().to_string(), entry.hash.clone()))
-            .collect();
-        let paths: HashSet<String> = hashmap.keys().cloned().collect();
-        Self { hashmap, paths }
-    }
-}
-
-impl From<PathBuf> for PathInfo {
-    fn from(value: PathBuf) -> Self {
-        Self::from(Self::hash_path(&value))
-    }
+    hashes.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+    hashes
 }
 
 struct FilePair {
@@ -209,6 +178,12 @@ struct FilePair {
 }
 
 impl FilePair {
+    // FIXME: Bubble error up further so we can print out all files that
+    // failed hashing at the end (outside of parallel loop)
+    // Will require modifying the hash_path function to return a
+    // vec of result instead of what it currently does.
+    /// Function that is called on each path to hash
+    ///
     pub fn new(relative_path: &PathBuf, first_base: &PathBuf, second_base: &PathBuf) -> Self {
         let first_hash = FileHash::new(&first_base.join(relative_path), first_base)
             .unwrap()
@@ -262,30 +237,18 @@ pub struct PathComparison {
 impl PathComparison {
     /// Compute comparasion results
     ///
-    /// # Arguments:
-    /// * `first_path`: The first of the two paths to scan
-    /// * `second_path`: The second of the two paths to scan
+    /// # Arguments
+    ///   - `first_path`: The first of the two paths to scan
+    ///   - `second_path`: The second of the two paths to scan
     ///
-    /// # Returns:
-    /// Created `PathComparison` instance.
+    /// # Returns
+    ///   Created `PathComparison` instance.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
-        let first_files: HashSet<PathBuf> = WalkDir::new(&first_path)
-            .into_iter()
-            .filter_map(|v| {
-                let path = v.unwrap().to_rel_path(first_path).unwrap();
-                if !path.is_dir() { Some(path) } else { None }
-            })
-            .collect();
+        let first_files: HashSet<PathBuf> = gather_paths(&first_path).collect();
 
         // Find all files under thew second path.
-        let second_files: HashSet<PathBuf> = WalkDir::new(&second_path)
-            .into_iter()
-            .filter_map(|v| {
-                let path = v.unwrap().to_rel_path(second_path).unwrap();
-                if !path.is_dir() { Some(path) } else { None }
-            })
-            .collect();
+        let second_files: HashSet<PathBuf> = gather_paths(&second_path).collect();
 
         // Get sets of the files in one or the other path,
         let first_not_second = first_files
@@ -359,6 +322,8 @@ impl PathComparison {
 mod tests {
     use std::path::PathBuf;
 
+    use crate::{FileHash, compute_hashes_for_dir, gather_paths};
+
     /// Info used in tests
     pub struct TestData {
         /// Hash for file1.txt
@@ -372,6 +337,9 @@ mod tests {
 
         /// String of file4.txt hash
         file4_hash_str: String,
+
+        /// String of file5.txt hash
+        file5_hash_str: String,
 
         /// Path to dir1
         dir1_path: PathBuf,
@@ -496,6 +464,28 @@ mod tests {
             );
         }
 
+        /// Test creation and proper hashing.
+        #[test]
+        fn test_get_rel_path() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path)
+                .unwrap()
+                .get_rel_path();
+
+            assert_eq!(result, String::from("file1.txt"));
+        }
+
+        /// Test creation and proper hashing.
+        #[test]
+        fn test_get_hash_string() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path)
+                .unwrap()
+                .get_hash_string();
+
+            assert_eq!(result, test_data.file1_hash_str);
+        }
+
         /// Test the `hash_string` method
         #[test]
         fn test_hash_str() {
@@ -506,134 +496,47 @@ mod tests {
         }
     }
 
-    mod test_path_info {
-        use std::path::PathBuf;
-
-        use crate::{FileHash, PathInfo};
-
-        use super::TestData;
-
-        /// Test the `hash_path` method
-        #[test]
-        fn test_hash_path() {
-            let test_data = TestData::new();
-            let mut results = PathInfo::hash_path(&test_data.dir1_path);
-            results.sort();
-            let mut expected = vec![
-                FileHash {
-                    filepath: PathBuf::from(""),
-                    hash: String::new(),
-                },
-                FileHash {
-                    filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash_str,
-                },
-                FileHash {
-                    filepath: PathBuf::from("file2.txt"),
-                    hash: test_data.file2_hash_str,
-                },
-                FileHash {
-                    filepath: PathBuf::from("file4.txt"),
-                    hash: test_data.file4_hash_str,
-                },
-            ];
-            expected.sort();
-            assert_eq!(results, expected);
-        }
-        /// Test the `hash_path` method when the path is a file
-        #[test]
-        fn test_hash_path_file() {
-            let test_data = TestData::new();
-            let results = PathInfo::hash_path(&test_data.file1_path);
-            let expected = vec![FileHash {
-                filepath: PathBuf::from("test_files/dir1/file1.txt"),
+    /// Basic test of computing hashes for a folder
+    #[test]
+    fn test_compute_hashes_for_dir() {
+        let test_data = TestData::new();
+        let results = compute_hashes_for_dir(&test_data.dir1_path);
+        let expected = vec![
+            FileHash {
+                filepath: PathBuf::from("file1.txt"),
                 hash: test_data.file1_hash_str,
-            }];
-            assert_eq!(results, expected);
-        }
-
-        /// Test creating from a vec of hashes.
-        #[test]
-        fn test_from_vec() {
-            let test_data = TestData::new();
-            let input = vec![
-                FileHash {
-                    filepath: PathBuf::from(""),
-                    hash: String::new(),
-                },
-                FileHash {
-                    filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash_str.clone(),
-                },
-                FileHash {
-                    filepath: PathBuf::from("file2.txt"),
-                    hash: test_data.file2_hash_str.clone(),
-                },
-                FileHash {
-                    filepath: PathBuf::from("file4.txt"),
-                    hash: test_data.file4_hash_str.clone(),
-                },
-            ];
-            let expected = PathInfo {
-                hashmap: vec![
-                    (String::new(), String::new()),
-                    (String::from("file1.txt"), test_data.file1_hash_str),
-                    (String::from("file2.txt"), test_data.file2_hash_str),
-                    (String::from("file4.txt"), test_data.file4_hash_str),
-                ]
-                .into_iter()
-                .collect(),
-                paths: vec![
-                    String::new(),
-                    String::from("file1.txt"),
-                    String::from("file2.txt"),
-                    String::from("file4.txt"),
-                ]
-                .into_iter()
-                .collect(),
-            };
-
-            let result = PathInfo::from(input);
-
-            assert_eq!(result, expected);
-        }
-
-        /// Test creating from a path.
-        #[test]
-        fn test_from_path() {
-            let test_data = TestData::new();
-            let expected = PathInfo {
-                hashmap: vec![
-                    (String::new(), String::new()),
-                    (String::from("file1.txt"), test_data.file1_hash_str),
-                    (String::from("file2.txt"), test_data.file2_hash_str),
-                    (String::from("file4.txt"), test_data.file4_hash_str),
-                ]
-                .into_iter()
-                .collect(),
-                paths: vec![
-                    String::new(),
-                    String::from("file1.txt"),
-                    String::from("file2.txt"),
-                    String::from("file4.txt"),
-                ]
-                .into_iter()
-                .collect(),
-            };
-            let result = PathInfo::from(test_data.dir1_path);
-            assert_eq!(result, expected);
-        }
-
-        /// Test the `path_difference` method
-        #[test]
-        fn test_path_difference() {
-            let test_data = TestData::new();
-            let dir1_info = PathInfo::from(test_data.dir1_path);
-            let dir2_info = PathInfo::from(test_data.dir2_path);
-            let difference = dir1_info.path_difference(&dir2_info);
-            assert_eq!(difference, vec![String::from("file1.txt")]);
-        }
+            },
+            FileHash {
+                filepath: PathBuf::from("file2.txt"),
+                hash: test_data.file2_hash_str,
+            },
+            FileHash {
+                filepath: PathBuf::from("file4.txt"),
+                hash: test_data.file4_hash_str,
+            },
+            FileHash {
+                filepath: PathBuf::from("subdir\\file5.txt"),
+                hash: test_data.file5_hash_str,
+            },
+        ];
+        assert_eq!(results, expected)
     }
+
+    /// Test the `gather_paths` function
+    #[test]
+    fn test_gather_paths() {
+        let test_data = TestData::new();
+        let mut results: Vec<PathBuf> = gather_paths(&test_data.dir1_path).collect();
+        results.sort();
+        let expected = vec![
+            PathBuf::from("file1.txt"),
+            PathBuf::from("file2.txt"),
+            PathBuf::from("file4.txt"),
+            PathBuf::from("subdir\\file5.txt"),
+        ];
+        assert_eq!(results, expected);
+    }
+
     mod test_path_difference {
         use crate::PathComparison;
 

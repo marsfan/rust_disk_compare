@@ -6,7 +6,7 @@
 //!Tool for computing hashes and comparing files
 use clap::Parser;
 use disk_compare::cli::Arguments;
-use disk_compare::{PathComparison, PathInfo};
+use disk_compare::{PathComparison, compute_hashes_for_dir};
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
 
 fn main() {
@@ -19,7 +19,8 @@ fn main() {
 
         PathComparison::new(&args.first_path, &second_path).print_results();
     } else {
-        let first_path_info = PathInfo::from(args.first_path);
-        first_path_info.print_hashes();
+        for hash in compute_hashes_for_dir(&args.first_path) {
+            println!("{}:\t{}", hash.get_rel_path(), hash.get_hash_string());
+        }
     }
 }
