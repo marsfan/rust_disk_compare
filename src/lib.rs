@@ -8,18 +8,18 @@
 pub mod cli;
 pub mod errors;
 
-use std::collections::HashSet;
-use std::fmt::Write;
+use core::fmt::Write as _;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use std::{collections::HashSet, path::Path};
 
 use crate::errors::ToolError;
 
-use indicatif::ParallelProgressIterator;
-use rayon::iter::IntoParallelRefIterator;
-use rayon::prelude::ParallelIterator;
-use sha2::{Digest, Sha256};
+use indicatif::ParallelProgressIterator as _;
+use rayon::iter::IntoParallelRefIterator as _;
+use rayon::prelude::ParallelIterator as _;
+use sha2::{Digest as _, Sha256};
 use walkdir::{DirEntry, WalkDir};
 
 /// A single file and its hash
@@ -35,11 +35,15 @@ impl FileHash {
     /// Create the new hash from the given path.
     ///
     /// # Arguments
-    /// * `filepath`: The path to the file to hash.
-    /// * `base_path`: The base path the files should be relative to.
+    ///   * `filepath`: The path to the file to hash.
+    ///   * `base_path`: The base path the files should be relative to.
     ///
     /// # Returns:
-    /// The created `FileHash` instance.
+    ///   The created `FileHash` instance.
+    ///
+    /// # Errors
+    ///   Will error out if an error occurred when computing the hash for the file.
+    ///   or converting the path to be relative to the base path.
     pub fn new(filepath: &PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
         let hash = if filepath.is_file() {
@@ -132,10 +136,10 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(base).into_iter().filter_map(|v| {
         let entry = v.unwrap();
         let path = entry.to_rel_path(base).unwrap();
-        if !entry.file_type().is_dir() {
-            Some(path)
-        } else {
+        if entry.file_type().is_dir() {
             None
+        } else {
+            Some(path)
         }
     })
 }
@@ -169,11 +173,16 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
     hashes
 }
 
+/// A pair of files that both have the the same relative path to their bases
 struct FilePair {
+    /// Relative path to both files
     relative_path: PathBuf,
 
     // TODO: Store hashes as bytes and only compute string on request?
+    /// Hash of the first file
     first_hash: String,
+
+    /// Hash of the second file
     second_hash: String,
 }
 
@@ -192,27 +201,52 @@ impl FilePair {
             .unwrap()
             .hash;
         Self {
-            relative_path: relative_path.to_path_buf(),
+            relative_path: relative_path.clone(),
             first_hash,
             second_hash,
         }
     }
 
+    /// Check if the two file hashes are identical
+    ///
+    /// # Returns
+    ///   Boolean indicating if the files have matching hashes
     pub fn same_hash(&self) -> bool {
         self.first_hash == self.second_hash
     }
 
+    /// Get the relative path to the file as a string
+    ///
+    /// Since both files are relative to a base, this is the relative
+    /// path for both files from their bases.
+    ///
+    /// # Returns
+    ///   A string holding the relative path to the files
     pub fn relative_path_string(&self) -> String {
         self.relative_path.display().to_string()
     }
 }
 
+/// Trait to add a method to the `DirEntry` struct for making the path
+/// be relative to a base path.
 trait ToRelativePath {
-    fn to_rel_path(&self, base_path: &PathBuf) -> Result<PathBuf, ToolError>;
+    /// Get a path that is relative to the given base path.
+    ///
+    /// # Arguments
+    ///   * `base_path`: The base path to make the path relative to
+    ///
+    /// # Returns
+    ///   * Path to this file, relative to the given base path
+    ///
+    /// # Errors
+    ///   Will return an error of it is not possible to make the path
+    ///   relative to the given base path.
+    fn to_rel_path(&self, base_path: &Path) -> Result<PathBuf, ToolError>;
 }
 
+// FIXME: Needs tests
 impl ToRelativePath for DirEntry {
-    fn to_rel_path(&self, base_path: &PathBuf) -> Result<PathBuf, ToolError> {
+    fn to_rel_path(&self, base_path: &Path) -> Result<PathBuf, ToolError> {
         Ok(self
             .clone()
             .into_path()
@@ -245,10 +279,10 @@ impl PathComparison {
     ///   Created `PathComparison` instance.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
-        let first_files: HashSet<PathBuf> = gather_paths(&first_path).collect();
+        let first_files: HashSet<PathBuf> = gather_paths(first_path).collect();
 
         // Find all files under thew second path.
-        let second_files: HashSet<PathBuf> = gather_paths(&second_path).collect();
+        let second_files: HashSet<PathBuf> = gather_paths(second_path).collect();
 
         // Get sets of the files in one or the other path,
         let first_not_second = first_files
@@ -267,10 +301,10 @@ impl PathComparison {
 
         // Filter out just the files that have mismatched hashes
         let different_hashes = in_both.par_iter().filter_map(|v| {
-            if !v.same_hash() {
-                Some(v.relative_path_string())
-            } else {
+            if v.same_hash() {
                 None
+            } else {
+                Some(v.relative_path_string())
             }
         });
 
@@ -563,5 +597,9 @@ mod tests {
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
         }
+    }
+
+    mod test_file_pair {
+        // FIXME: Need tests for methods on file_pair
     }
 }

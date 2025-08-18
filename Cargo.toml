@@ -21,23 +21,56 @@ missing_docs = "warn"
 deprecated-in-future = "warn"
 
 [lints.clippy]
-all = "warn"
-correctness = "warn"
-suspicious = "warn"
-complexity = "warn"
-perf = "warn"
-pedantic = "warn"
-cargo = "warn"
+
+all = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+
+
+# Rules that we are ok with
+# Mostly stuff from "restriction", since that one tends to be very agressive.
+blanket_clippy_restriction_lints = "allow"
+lint_groups_priority = "allow"
+implicit_return = "allow"
+print_stdout = "allow"
+integer_division_remainder_used = "allow"
+integer_division = "allow"
+min_ident_chars = "allow"
+float_arithmetic = "allow"
+arithmetic_side_effects = "allow"
+indexing_slicing = "allow"
+default_numeric_fallback = "allow"
+arbitrary_source_item_ordering = "allow"
+single_call_fn = "allow"
+question_mark_used = "allow"
+multiple_crate_versions = "allow"
+exhaustive_structs = "allow"
+exhaustive_enums = "allow"
+
+# Rules we might want to enable later
+missing_inline_in_public_items = "allow"
+shadow_reuse = "allow"
+must_use_candidate = "allow"
+unwrapped_used = "allow"
+
 
 # Individual rules instead of groups
-missing_docs_in_private_items = "warn"
-cargo_common_metadata = "warn"
-unwrap_in_result = "warn"
-match_bool = "warn"
-uninlined_format_args = "warn"
-needless_pass_by_value = "warn"
-explicit_iter_loop = "warn"
+# missing_docs_in_private_items = "warn"
+# cargo_common_metadata = "warn"
+# unwrap_in_result = "warn"
+# match_bool = "warn"
+# uninlined_format_args = "warn"
+# needless_pass_by_value = "warn"
+# explicit_iter_loop = "warn"
+
+# must_use_candidate = { level = "allow", priority = -1 }
 
 # Allow multiple crate versions issue
 # caused by dependencies
-multiple_crate_versions = { level = "allow", priority = 1 }
+# multiple_crate_versions = { level = "allow", priority = 1 }

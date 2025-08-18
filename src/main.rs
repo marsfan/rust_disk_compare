@@ -4,7 +4,7 @@
 * file, You can obtain one at https: //mozilla.org/MPL/2.0/.
 */
 //!Tool for computing hashes and comparing files
-use clap::Parser;
+use clap::Parser as _;
 use disk_compare::cli::Arguments;
 use disk_compare::{PathComparison, compute_hashes_for_dir};
 // TODO: Argument for selecting the hash (SHa256, MD5, etc.)
