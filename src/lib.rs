@@ -693,20 +693,50 @@ mod tests {
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
         }
 
-        /// Test the `any_differences` method when there are differences
-        #[test]
-        fn test_any_differences_true() {
-            let test_data = TestData::new();
-            let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
-            assert_eq!(comparsion.any_differences(), true);
-        }
+        /// Tests for the `any_differences` method
+        mod test_any_differences {
+            use super::*;
 
-        /// Test the `any_differences` method when there are no differences
-        #[test]
-        fn test_any_differences_false() {
-            let test_data = TestData::new();
-            let comparsion = PathComparison::new(&test_data.dir2_path, &test_data.dir3_path);
-            assert_eq!(comparsion.any_differences(), false);
+            /// Test the `any_differences` method when there is an additional file in the first directory
+            #[test]
+            fn test_extra_in_first() {
+                let comparsion = PathComparison {
+                    first_not_second: Vec::from([String::from("abc")]),
+                    second_not_first: Vec::new(),
+                    different_hashes: Vec::new(),
+                };
+                assert_eq!(comparsion.any_differences(), true);
+            }
+
+            /// Test the `any_differences` method when there is an additional file in the second directory
+            #[test]
+            fn test_true_extra_in_second() {
+                let comparsion = PathComparison {
+                    first_not_second: Vec::new(),
+                    second_not_first: Vec::from([String::from("abc")]),
+                    different_hashes: Vec::new(),
+                };
+                assert_eq!(comparsion.any_differences(), true);
+            }
+
+            /// Test the `any_differences` method when there are files with differing hashes
+            #[test]
+            fn test_true_differing_hashes() {
+                let comparsion = PathComparison {
+                    first_not_second: Vec::new(),
+                    second_not_first: Vec::new(),
+                    different_hashes: Vec::from([String::from("abc")]),
+                };
+                assert_eq!(comparsion.any_differences(), true);
+            }
+
+            /// Test the `any_differences` method when there are no differences
+            #[test]
+            fn test_false() {
+                let test_data = TestData::new();
+                let comparsion = PathComparison::new(&test_data.dir2_path, &test_data.dir3_path);
+                assert_eq!(comparsion.any_differences(), false);
+            }
         }
     }
 }
