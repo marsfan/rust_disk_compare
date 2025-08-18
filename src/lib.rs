@@ -405,6 +405,9 @@ mod tests {
                 file4_hash_str: String::from(
                     "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
                 ),
+                file5_hash_str: String::from(
+                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                ),
                 dir1_path: PathBuf::from("test_files/dir1"),
                 dir2_path: PathBuf::from("test_files/dir2"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
@@ -641,7 +644,10 @@ mod tests {
         fn test_creation() {
             let test_data = TestData::new();
             let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
-            assert_eq!(comparsion.first_not_second, vec![String::from("file1.txt")]);
+            assert_eq!(
+                comparsion.first_not_second,
+                vec![String::from("subdir\\file5.txt"), String::from("file1.txt")]
+            );
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
         }
