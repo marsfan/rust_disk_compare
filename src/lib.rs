@@ -169,7 +169,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
 }
 
 /// A pair of files that both have the the same relative path to their bases
-// FIXME: Needs tests
+#[derive(Debug, PartialEq, Eq)]
 struct FilePair {
     /// Relative path to both files
     relative_path: PathBuf,
@@ -218,7 +218,7 @@ impl FilePair {
     ///
     /// # Returns
     ///   A string holding the relative path to the files
-    pub fn relative_path_string(&self) -> String {
+    pub fn get_relative_path_string(&self) -> String {
         self.relative_path.display().to_string()
     }
 }
@@ -240,7 +240,6 @@ trait ToRelativePath {
     fn to_rel_path(&self, base_path: &Path) -> Result<PathBuf, ToolError>;
 }
 
-// FIXME: Needs tests
 impl ToRelativePath for DirEntry {
     fn to_rel_path(&self, base_path: &Path) -> Result<PathBuf, ToolError> {
         Ok(self
@@ -300,7 +299,7 @@ impl PathComparison {
             if v.same_hash() {
                 None
             } else {
-                Some(v.relative_path_string())
+                Some(v.get_relative_path_string())
             }
         });
 
@@ -349,7 +348,7 @@ impl PathComparison {
     /// Get if there are any differences found between supplied paths
     ///
     /// # Returns
-    /// Boolean indicating if any differences were found between the supplied paths.
+    ///   Boolean indicating if any differences were found between the supplied paths.
     fn any_differences(&self) -> bool {
         (!self.first_not_second.is_empty())
             || (!self.second_not_first.is_empty())
@@ -359,25 +358,35 @@ impl PathComparison {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use crate::{FileHash, compute_hashes_for_dir, gather_paths};
+    use super::*;
 
     /// Info used in tests
     pub struct TestData {
-        /// Hash for file1.txt
+        /// String of hash for file1.txt
         file1_hash_str: String,
 
-        /// String of file1.txt hash
+        /// String of hash for file1.txt in dir1
+        file2_hash_str_dir1: String,
+
+        /// String of hash for file1.txt in dir2
+        file2_hash_str_dir2: String,
+
+        /// String of hash for file2.txt
+        file4_hash_str: String,
+
+        /// File1.txt hash
         file1_hash: Vec<u8>,
 
-        /// String of file2.txt hash
-        file2_hash: Vec<u8>,
+        /// File2.txt hash in dir 1
+        file2_hash_dir1: Vec<u8>,
 
-        /// String of file4.txt hash
+        /// File2.txt hash in dir 2
+        file2_hash_dir2: Vec<u8>,
+
+        /// File4.txt hash
         file4_hash: Vec<u8>,
 
-        /// String of file5.txt hash
+        /// File5.txt hash
         file5_hash: Vec<u8>,
 
         /// Path to dir1
@@ -385,6 +394,9 @@ mod tests {
 
         /// Path to dir2
         dir2_path: PathBuf,
+
+        /// Path to dir3
+        dir3_path: PathBuf,
 
         /// Path to file1
         file1_path: PathBuf,
@@ -399,16 +411,30 @@ mod tests {
                 file1_hash_str: String::from(
                     "e4c529a90c31a10016d7334d2718c10c0bd301170fea0f554570b2f298ece97f",
                 ),
+                file2_hash_str_dir1: String::from(
+                    "a1028f793b0aae9c51fa83e39975b254d78947620868f09e4a648e73486a623c",
+                ),
+                file2_hash_str_dir2: String::from(
+                    "ab749da57d403a26c3e1a173aeb533119156dfa06bf1b276e820d14d8b875068",
+                ),
+                file4_hash_str: String::from(
+                    "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
+                ),
                 file1_hash: Vec::from([
                     0xe4, 0xc5, 0x29, 0xa9, 0x0c, 0x31, 0xa1, 0x00, 0x16, 0xd7, 0x33, 0x4d, 0x27,
                     0x18, 0xc1, 0x0c, 0x0b, 0xd3, 0x01, 0x17, 0x0f, 0xea, 0x0f, 0x55, 0x45, 0x70,
                     0xb2, 0xf2, 0x98, 0xec, 0xe9, 0x7f,
                 ]),
 
-                file2_hash: Vec::from([
+                file2_hash_dir1: Vec::from([
                     0xa1, 0x02, 0x8f, 0x79, 0x3b, 0x0a, 0xae, 0x9c, 0x51, 0xfa, 0x83, 0xe3, 0x99,
                     0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
                     0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
+                ]),
+                file2_hash_dir2: Vec::from([
+                    0xab, 0x74, 0x9d, 0xa5, 0x7d, 0x40, 0x3a, 0x26, 0xc3, 0xe1, 0xa1, 0x73, 0xae,
+                    0xb5, 0x33, 0x11, 0x91, 0x56, 0xdf, 0xa0, 0x6b, 0xf1, 0xb2, 0x76, 0xe8, 0x20,
+                    0xd1, 0x4d, 0x8b, 0x87, 0x50, 0x68,
                 ]),
 
                 file4_hash: Vec::from([
@@ -423,6 +449,7 @@ mod tests {
                 ]),
                 dir1_path: PathBuf::from("test_files/dir1"),
                 dir2_path: PathBuf::from("test_files/dir2"),
+                dir3_path: PathBuf::from("test_files/dir3"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
                 test_files_dir: PathBuf::from("test_files"),
             }
@@ -430,8 +457,7 @@ mod tests {
     }
 
     mod test_file_hash {
-        use crate::{FileHash, tests::TestData};
-        use std::path::PathBuf;
+        use super::*;
 
         /// Test the `hash_file` method
         #[test]
@@ -544,7 +570,7 @@ mod tests {
             },
             FileHash {
                 filepath: PathBuf::from("file2.txt"),
-                hash: test_data.file2_hash,
+                hash: test_data.file2_hash_dir1,
             },
             FileHash {
                 filepath: PathBuf::from("file4.txt"),
@@ -573,10 +599,97 @@ mod tests {
         assert_eq!(results, expected);
     }
 
-    mod test_path_difference {
-        use crate::PathComparison;
+    mod test_file_pair {
+        use super::*;
 
-        use super::TestData;
+        /// Test creation of a new file pair
+        #[test]
+        fn test_new() {
+            let test_data = TestData::new();
+
+            let result = FilePair::new(
+                &PathBuf::from("file2.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+
+            let expected = FilePair {
+                relative_path: PathBuf::from("file2.txt"),
+                first_hash: test_data.file2_hash_str_dir1.clone(),
+                second_hash: test_data.file2_hash_str_dir2.clone(),
+            };
+
+            assert_eq!(result, expected);
+        }
+
+        /// Test the `same_hash` method when file hashes are the same
+        #[test]
+        fn test_same_hash_true() {
+            let test_data = TestData::new();
+
+            let pair = FilePair::new(
+                &PathBuf::from("file4.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+
+            assert_eq!(pair.same_hash(), true);
+        }
+
+        /// Test the `same_hash` method when file hashes are not the same
+        #[test]
+        fn test_same_hash_false() {
+            let test_data = TestData::new();
+
+            let pair = FilePair::new(
+                &PathBuf::from("file2.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+
+            assert_eq!(pair.same_hash(), false);
+        }
+
+        /// Test getting the relative path string
+        #[test]
+        fn test_get_relative_path_string() {
+            let test_data = TestData::new();
+
+            let pair = FilePair::new(
+                &PathBuf::from("file2.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+
+            assert_eq!(pair.get_relative_path_string(), "file2.txt");
+        }
+    }
+
+    /// Test the `to_rel_path` function that is implemented on `DirEntry`
+    #[test]
+    fn test_to_rel_path() {
+        let test_data = TestData::new();
+        let walked = WalkDir::new(&test_data.dir2_path);
+        let mut files = walked
+            .into_iter()
+            .map(|v| v.unwrap().to_rel_path(&test_data.dir2_path).unwrap())
+            .collect::<Vec<_>>();
+
+        // Sort the results so testing is deterministic
+        files.sort();
+
+        let expected = vec![
+            PathBuf::from(""),
+            PathBuf::from("file2.txt"),
+            PathBuf::from("file3.txt"),
+            PathBuf::from("file4.txt"),
+        ];
+
+        assert_eq!(files, expected);
+    }
+
+    mod test_path_comparsion {
+        use super::*;
 
         /// Test creation of the struct
         #[test]
@@ -590,9 +703,21 @@ mod tests {
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
         }
-    }
 
-    mod test_file_pair {
-        // FIXME: Need tests for methods on file_pair
+        /// Test the `any_differences` method when there are differences
+        #[test]
+        fn test_any_differences_true() {
+            let test_data = TestData::new();
+            let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
+            assert_eq!(comparsion.any_differences(), true);
+        }
+
+        /// Test the `any_differences` method when there are no differences
+        #[test]
+        fn test_any_differences_false() {
+            let test_data = TestData::new();
+            let comparsion = PathComparison::new(&test_data.dir2_path, &test_data.dir3_path);
+            assert_eq!(comparsion.any_differences(), false);
+        }
     }
 }
