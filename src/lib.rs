@@ -159,17 +159,11 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
     let mut hashes: Vec<FileHash> = gather_paths(base)
         .collect::<Vec<PathBuf>>()
         .par_iter()
-        .map(|file| {
-            FileHash::new(&base.join(file), base).unwrap()
-            // (
-            //     file.display().to_string(),
-            //     FileHash::new(&base.join(file), base).unwrap().hash,
-            // )
-        })
+        .map(|file| FileHash::new(&base.join(file), base).unwrap())
         .progress()
         .collect();
 
-    hashes.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+    hashes.sort_by(|a, b| a.get_rel_path().cmp(&b.get_rel_path()));
     hashes
 }
 
@@ -196,10 +190,10 @@ impl FilePair {
     pub fn new(relative_path: &PathBuf, first_base: &PathBuf, second_base: &PathBuf) -> Self {
         let first_hash = FileHash::new(&first_base.join(relative_path), first_base)
             .unwrap()
-            .hash;
+            .get_hash_string();
         let second_hash = FileHash::new(&second_base.join(relative_path), second_base)
             .unwrap()
-            .hash;
+            .get_hash_string();
         Self {
             relative_path: relative_path.clone(),
             first_hash,
