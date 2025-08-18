@@ -361,6 +361,8 @@ impl PathComparison {
 
 #[cfg(test)]
 mod tests {
+    use std::path::MAIN_SEPARATOR;
+
     use super::*;
 
     /// Info used in tests
@@ -566,7 +568,7 @@ mod tests {
                 hash: test_data.file4_hash,
             },
             FileHash {
-                filepath: PathBuf::from("subdir\\file5.txt"),
+                filepath: PathBuf::from(format!("subdir{MAIN_SEPARATOR}file5.txt")),
                 hash: test_data.file5_hash,
             },
         ];
@@ -583,7 +585,7 @@ mod tests {
             PathBuf::from("file1.txt"),
             PathBuf::from("file2.txt"),
             PathBuf::from("file4.txt"),
-            PathBuf::from("subdir\\file5.txt"),
+            PathBuf::from(format!("subdir{MAIN_SEPARATOR}file5.txt")),
         ];
         assert_eq!(results, expected);
     }
@@ -687,7 +689,10 @@ mod tests {
             let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
             assert_eq!(
                 comparsion.first_not_second,
-                vec![String::from("file1.txt"), String::from("subdir\\file5.txt")]
+                vec![
+                    String::from("file1.txt"),
+                    format!("subdir{MAIN_SEPARATOR}file5.txt")
+                ]
             );
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
