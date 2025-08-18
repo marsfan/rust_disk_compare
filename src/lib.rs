@@ -152,6 +152,9 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
 ///
 /// # Returns
 ///   Vector of `FileHash` objects for all files found recursively in the directory
+///
+/// # Panics
+///   Will panic if computing the file hash fails.
 pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
     // FIXME: Bubble error up further so we can print out all files that
     // failed hashing at the end (outside of parallel loop)
@@ -164,7 +167,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
         .progress()
         .collect();
 
-    hashes.sort_by(|a, b| a.get_rel_path().cmp(&b.get_rel_path()));
+    hashes.sort_by_key(FileHash::get_rel_path);
     hashes
 }
 
@@ -371,17 +374,11 @@ mod tests {
         /// String of hash for file1.txt in dir2
         file2_hash_str_dir2: String,
 
-        /// String of hash for file2.txt
-        file4_hash_str: String,
-
         /// File1.txt hash
         file1_hash: Vec<u8>,
 
         /// File2.txt hash in dir 1
         file2_hash_dir1: Vec<u8>,
-
-        /// File2.txt hash in dir 2
-        file2_hash_dir2: Vec<u8>,
 
         /// File4.txt hash
         file4_hash: Vec<u8>,
@@ -417,9 +414,6 @@ mod tests {
                 file2_hash_str_dir2: String::from(
                     "ab749da57d403a26c3e1a173aeb533119156dfa06bf1b276e820d14d8b875068",
                 ),
-                file4_hash_str: String::from(
-                    "e9971969e0ab8b9c44e00e0e80c4ade9bea569205e42c8dedcf767f2ef2685b0",
-                ),
                 file1_hash: Vec::from([
                     0xe4, 0xc5, 0x29, 0xa9, 0x0c, 0x31, 0xa1, 0x00, 0x16, 0xd7, 0x33, 0x4d, 0x27,
                     0x18, 0xc1, 0x0c, 0x0b, 0xd3, 0x01, 0x17, 0x0f, 0xea, 0x0f, 0x55, 0x45, 0x70,
@@ -430,11 +424,6 @@ mod tests {
                     0xa1, 0x02, 0x8f, 0x79, 0x3b, 0x0a, 0xae, 0x9c, 0x51, 0xfa, 0x83, 0xe3, 0x99,
                     0x75, 0xb2, 0x54, 0xd7, 0x89, 0x47, 0x62, 0x08, 0x68, 0xf0, 0x9e, 0x4a, 0x64,
                     0x8e, 0x73, 0x48, 0x6a, 0x62, 0x3c,
-                ]),
-                file2_hash_dir2: Vec::from([
-                    0xab, 0x74, 0x9d, 0xa5, 0x7d, 0x40, 0x3a, 0x26, 0xc3, 0xe1, 0xa1, 0x73, 0xae,
-                    0xb5, 0x33, 0x11, 0x91, 0x56, 0xdf, 0xa0, 0x6b, 0xf1, 0xb2, 0x76, 0xe8, 0x20,
-                    0xd1, 0x4d, 0x8b, 0x87, 0x50, 0x68,
                 ]),
 
                 file4_hash: Vec::from([
@@ -535,7 +524,7 @@ mod tests {
             );
         }
 
-        /// Test get_rel_path method
+        /// Test `get_rel_path` method
         #[test]
         fn test_get_rel_path() {
             let test_data = TestData::new();
@@ -546,7 +535,7 @@ mod tests {
             assert_eq!(result, String::from("file1.txt"));
         }
 
-        /// Test get_hash_string method
+        /// Test `get_hash_string` method
         #[test]
         fn test_get_hash_string() {
             let test_data = TestData::new();
@@ -581,7 +570,7 @@ mod tests {
                 hash: test_data.file5_hash,
             },
         ];
-        assert_eq!(results, expected)
+        assert_eq!(results, expected);
     }
 
     /// Test the `gather_paths` function

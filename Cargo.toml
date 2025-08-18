@@ -52,12 +52,13 @@ question_mark_used = "allow"
 multiple_crate_versions = "allow"
 exhaustive_structs = "allow"
 exhaustive_enums = "allow"
+bool_assert_comparison = "allow"
 
 # Rules we might want to enable later
 missing_inline_in_public_items = "allow"
 shadow_reuse = "allow"
 must_use_candidate = "allow"
-unwrapped_used = "allow"
+unwrap_used = "allow"
 
 
 # Individual rules instead of groups
