@@ -91,7 +91,7 @@ impl FileHash {
     /// Get the relative path to the file as a string
     ///
     /// # Returns
-    ///     The relative file path as a string
+    ///   The relative file path as a string
     pub fn get_rel_path(&self) -> String {
         self.filepath.display().to_string()
     }
@@ -99,7 +99,7 @@ impl FileHash {
     /// Get the file hash represented as a string
     ///
     /// # Returns
-    ///     The file's hash as a string of hexadecimal values
+    ///   The file's hash as a string of hexadecimal values
     pub fn get_hash_string(&self) -> String {
         self.hash.clone()
     }
@@ -273,10 +273,18 @@ impl PathComparison {
             }
         });
 
+        let mut first_not_second: Vec<String> = first_not_second.collect();
+        let mut second_not_first: Vec<String> = second_not_first.collect();
+        let mut different_hashes: Vec<String> = different_hashes.collect();
+
+        first_not_second.sort();
+        second_not_first.sort();
+        different_hashes.sort();
+
         Self {
-            first_not_second: first_not_second.collect(),
-            second_not_first: second_not_first.collect(),
-            different_hashes: different_hashes.collect(),
+            first_not_second,
+            second_not_first,
+            different_hashes,
         }
     }
 
@@ -549,7 +557,7 @@ mod tests {
             let comparsion = PathComparison::new(&test_data.dir1_path, &test_data.dir2_path);
             assert_eq!(
                 comparsion.first_not_second,
-                vec![String::from("subdir\\file5.txt"), String::from("file1.txt")]
+                vec![String::from("file1.txt"), String::from("subdir\\file5.txt")]
             );
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
