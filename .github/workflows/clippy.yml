@@ -10,7 +10,7 @@ jobs:
         name: Debug Build Clippy
         runs-on: ubuntu-latest
         steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
         - name: Clippy
           run: cargo clippy --all --tests -- -D warnings
 
@@ -18,6 +18,6 @@ jobs:
         name: Release Build Clippy
         runs-on: ubuntu-latest
         steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v5
         - name: Clippy
           run: cargo clippy --all --tests --release -- -D warnings
