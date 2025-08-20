@@ -294,11 +294,14 @@ impl PathComparison {
         // This will compute hashes for the files.
         let in_both: Vec<FilePair> = first_files
             .intersection(&second_files)
+            .collect::<Vec<&PathBuf>>()
+            .par_iter()
             .map(|v| FilePair::new(v, first_path, second_path))
+            .progress()
             .collect();
 
         // Filter out just the files that have mismatched hashes
-        let different_hashes = in_both.par_iter().filter_map(|v| {
+        let different_hashes = in_both.iter().filter_map(|v| {
             if v.same_hash() {
                 None
             } else {
