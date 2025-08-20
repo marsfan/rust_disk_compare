@@ -12,13 +12,13 @@ use disk_compare::{PathComparison, compute_hashes_for_dir};
 fn main() {
     // TODO: non-panicking error messages, esp for non existant files
     let args = Arguments::parse();
-    println!("Computing hashes for first path");
 
     if let Some(second_path) = args.second_path {
-        println!("Computing hashes for second path");
+        println!("Finding differeing files between paths.");
 
         PathComparison::new(&args.first_path, &second_path).print_results();
     } else {
+        println!("Computing hashes for all files in the given path.");
         for hash in compute_hashes_for_dir(&args.first_path) {
             println!("{}:\t{}", hash.get_rel_path(), hash.get_hash_string());
         }
