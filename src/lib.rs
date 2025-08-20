@@ -292,27 +292,32 @@ impl PathComparison {
 
         // For files in both paths, create a FilePair object.
         // This will compute hashes for the files.
-        let in_both: Vec<FilePair> = first_files
+        let mut different_hashes: Vec<String> = first_files
             .intersection(&second_files)
+            // Need to collect to a vec here first so that we know how many elements we are hashing
+            // or progress bar won't work
             .collect::<Vec<&PathBuf>>()
             .par_iter()
-            .map(|v| FilePair::new(v, first_path, second_path))
+            .map(|v| {
+                let pair = FilePair::new(v, first_path, second_path);
+                if pair.same_hash() {
+                    None
+                } else {
+                    Some(pair.get_relative_path_string())
+                }
+            })
             .progress()
+            // Have to split up filtering mismatches, and computing hashes, or the progress bar won't worrk
+            .flatten() // Calling flatten here is the same as calling `.filter_map(|v| v)`
             .collect();
 
         // Filter out just the files that have mismatched hashes
-        let different_hashes = in_both.iter().filter_map(|v| {
-            if v.same_hash() {
-                None
-            } else {
-                Some(v.get_relative_path_string())
-            }
-        });
+        // let different_hashes = in_both.into_iter().flatten();
 
         let mut first_not_second: Vec<String> = first_not_second.collect();
         let mut second_not_first: Vec<String> = second_not_first.collect();
-        let mut different_hashes: Vec<String> = different_hashes.collect();
 
+        // Sort teh outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
         second_not_first.sort();
         different_hashes.sort();
