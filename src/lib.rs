@@ -522,6 +522,16 @@ mod tests {
             );
         }
 
+        /// Test `get_rel_filepath` method
+        #[test]
+        fn test_get_rel_filepath() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path)
+                .unwrap()
+                .get_rel_filepath(&test_data.dir1_path);
+            assert_eq!(result, "file1.txt");
+        }
+
         /// Test `get_filepath` method
         #[test]
         fn test_get_filepath() {
