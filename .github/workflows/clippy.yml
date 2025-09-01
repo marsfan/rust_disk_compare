@@ -6,18 +6,16 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
-    run_clippy:
-        name: Debug Build Clippy
-        runs-on: ubuntu-latest
-        steps:
-        - uses: actions/checkout@v5
-        - name: Clippy
-          run: cargo clippy --all --tests -- -D warnings
+  run_clippy:
+    name: Run Clippy
+    runs-on: ubuntu-latest
 
-    run_clippy_release:
-        name: Release Build Clippy
-        runs-on: ubuntu-latest
-        steps:
-        - uses: actions/checkout@v5
-        - name: Clippy
-          run: cargo clippy --all --tests --release -- -D warnings
+    strategy:
+      matrix:
+        profile: [dev, release]
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Clippy
+        run: cargo clippy --profile ${{ matrix.profile }} --all --tests -- -D warnings
+
