@@ -87,7 +87,7 @@ impl FileHash {
     ///   base: Base directory to get path relative to.
     ///
     /// # Returns
-    ///   The relative file path as a
+    ///   The relative file path as a string
     ///
     /// # Errors
     ///   Will return an error if not able to convert the path to a relative path
