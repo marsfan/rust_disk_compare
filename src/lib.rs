@@ -89,14 +89,10 @@ impl FileHash {
     /// # Returns
     ///   The relative file path as a
     ///
-    /// # Panics
-    ///   Will panic if not able to convert the path to a relative path
-    pub fn get_rel_filepath(&self, base: &PathBuf) -> String {
-        self.filepath
-            .strip_prefix(base)
-            .unwrap()
-            .display()
-            .to_string()
+    /// # Errors
+    ///   Will return an error if not able to convert the path to a relative path
+    pub fn get_rel_filepath(&self, base: &PathBuf) -> Result<String, ToolError> {
+        Ok(self.filepath.strip_prefix(base)?.display().to_string())
     }
 
     /// # Get the path to the file as a strring
@@ -127,6 +123,10 @@ impl FileHash {
         // This is more performant than using map and format!
         // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
         hash.iter().fold(String::new(), |mut output, digit| {
+            #[expect(
+                clippy::unwrap_used,
+                reason = "As per above link, write!() to a String will never error"
+            )]
             write!(output, "{digit:02x}").unwrap();
             output
         })
@@ -319,9 +319,6 @@ impl PathComparison {
             // Have to split up filtering mismatches, and computing hashes, or the progress bar won't worrk
             .flatten() // Calling flatten here is the same as calling `.filter_map(|v| v)`
             .collect();
-
-        // Filter out just the files that have mismatched hashes
-        // let different_hashes = in_both.into_iter().flatten();
 
         let mut first_not_second: Vec<String> = first_not_second.collect();
         let mut second_not_first: Vec<String> = second_not_first.collect();
@@ -529,7 +526,7 @@ mod tests {
             let result = FileHash::new(&test_data.file1_path)
                 .unwrap()
                 .get_rel_filepath(&test_data.dir1_path);
-            assert_eq!(result, "file1.txt");
+            assert_eq!(result.unwrap(), "file1.txt");
         }
 
         /// Test `get_filepath` method

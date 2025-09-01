@@ -20,11 +20,13 @@ fn main() {
     } else {
         println!("Computing hashes for all files in the given path.");
         for hash in compute_hashes_for_dir(&args.first_path) {
-            println!(
-                "{}:\t{}",
-                hash.get_rel_filepath(&args.first_path),
-                hash.get_hash_string()
-            );
+            match hash.get_rel_filepath(&args.first_path) {
+                Ok(path) => println!("{}:\t{}", path, hash.get_hash_string()),
+                Err(e) => eprintln!(
+                    "Failed getting relative path for {}. Error: {e}",
+                    hash.get_filepath()
+                ),
+            }
         }
     }
 }
