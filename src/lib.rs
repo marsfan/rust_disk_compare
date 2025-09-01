@@ -186,24 +186,21 @@ struct FilePair {
 }
 
 impl FilePair {
-    // FIXME: Bubble error up further so we can print out all files that
-    // failed hashing at the end (outside of parallel loop)
-    // Will require modifying the hash_path function to return a
-    // vec of result instead of what it currently does.
     /// Function that is called on each path to hash
-    ///
-    pub fn new(relative_path: &PathBuf, first_base: &PathBuf, second_base: &PathBuf) -> Self {
-        let first_hash = FileHash::new(&first_base.join(relative_path), first_base)
-            .unwrap()
-            .get_hash_string();
-        let second_hash = FileHash::new(&second_base.join(relative_path), second_base)
-            .unwrap()
-            .get_hash_string();
-        Self {
+    pub fn new(
+        relative_path: &PathBuf,
+        first_base: &PathBuf,
+        second_base: &PathBuf,
+    ) -> Result<Self, ToolError> {
+        let first_hash =
+            FileHash::new(&first_base.join(relative_path), first_base)?.get_hash_string();
+        let second_hash =
+            FileHash::new(&second_base.join(relative_path), second_base)?.get_hash_string();
+        Ok(Self {
             relative_path: relative_path.clone(),
             first_hash,
             second_hash,
-        }
+        })
     }
 
     /// Check if the two file hashes are identical
@@ -275,6 +272,9 @@ impl PathComparison {
     ///
     /// # Returns
     ///   Created `PathComparison` instance.
+    ///
+    /// # Panics
+    ///   Will panic if hashing a file fails.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
         let first_files: HashSet<PathBuf> = gather_paths(first_path).collect();
@@ -298,8 +298,12 @@ impl PathComparison {
             // or progress bar won't work
             .collect::<Vec<&PathBuf>>()
             .par_iter()
+            // FIXME: Bubble error up further so we can print out all files that
+            // failed hashing at the end (outside of parallel loop)
+            // Will require modifying the hash_path function to return a
+            // vec of result instead of what it currently does.
             .map(|v| {
-                let pair = FilePair::new(v, first_path, second_path);
+                let pair = FilePair::new(v, first_path, second_path).unwrap();
                 if pair.same_hash() {
                     None
                 } else {
@@ -618,7 +622,7 @@ mod tests {
                 second_hash: test_data.file2_hash_str_dir2.clone(),
             };
 
-            assert_eq!(result, expected);
+            assert_eq!(result.unwrap(), expected);
         }
 
         /// Test the `same_hash` method when file hashes are the same
@@ -632,7 +636,7 @@ mod tests {
                 &test_data.dir2_path,
             );
 
-            assert_eq!(pair.same_hash(), true);
+            assert_eq!(pair.unwrap().same_hash(), true);
         }
 
         /// Test the `same_hash` method when file hashes are not the same
@@ -646,7 +650,7 @@ mod tests {
                 &test_data.dir2_path,
             );
 
-            assert_eq!(pair.same_hash(), false);
+            assert_eq!(pair.unwrap().same_hash(), false);
         }
 
         /// Test getting the relative path string
@@ -660,7 +664,7 @@ mod tests {
                 &test_data.dir2_path,
             );
 
-            assert_eq!(pair.get_relative_path_string(), "file2.txt");
+            assert_eq!(pair.unwrap().get_relative_path_string(), "file2.txt");
         }
     }
 
