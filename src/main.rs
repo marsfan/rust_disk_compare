@@ -20,7 +20,11 @@ fn main() {
     } else {
         println!("Computing hashes for all files in the given path.");
         for hash in compute_hashes_for_dir(&args.first_path) {
-            println!("{}:\t{}", hash.get_rel_path(), hash.get_hash_string());
+            println!(
+                "{}:\t{}",
+                hash.get_rel_filepath(&args.first_path),
+                hash.get_hash_string()
+            );
         }
     }
 }

@@ -36,15 +36,13 @@ impl FileHash {
     ///
     /// # Arguments
     ///   * `filepath`: The path to the file to hash.
-    ///   * `base_path`: The base path the files should be relative to.
     ///
     /// # Returns:
     ///   The created `FileHash` instance.
     ///
     /// # Errors
-    ///   Will error out if an error occurred when computing the hash for the file.
-    ///   or converting the path to be relative to the base path.
-    pub fn new(filepath: &PathBuf, base_path: &PathBuf) -> Result<Self, ToolError> {
+    ///   Will error out if an error occurred when computing the hash for the file
+    pub fn new(filepath: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
         let hash = if filepath.is_file() {
             Self::hash_file(filepath)?
@@ -52,17 +50,8 @@ impl FileHash {
             Vec::new()
         };
 
-        let filepath = if filepath.eq(base_path) && filepath.is_file() {
-            PathBuf::from(filepath)
-        } else if filepath.eq(base_path) {
-            PathBuf::new()
-        } else {
-            // If the provided path is not the base path, strip the base path
-            filepath.strip_prefix(base_path)?.to_path_buf()
-        };
-
         Ok(Self {
-            filepath,
+            filepath: filepath.clone(),
             hash, // hash: Self::hash_to_string(&hash),
         })
     }
@@ -94,9 +83,27 @@ impl FileHash {
 
     /// Get the relative path to the file as a string
     ///
+    /// # Arguments
+    ///   base: Base directory to get path relative to.
+    ///
     /// # Returns
-    ///   The relative file path as a string
-    pub fn get_rel_path(&self) -> String {
+    ///   The relative file path as a
+    ///
+    /// # Panics
+    ///   Will panic if not able to convert the path to a relative path
+    pub fn get_rel_filepath(&self, base: &PathBuf) -> String {
+        self.filepath
+            .strip_prefix(base)
+            .unwrap()
+            .display()
+            .to_string()
+    }
+
+    /// # Get the path to the file as a strring
+    ///
+    /// # Returns
+    ///   The path to the file as a string
+    pub fn get_filepath(&self) -> String {
         self.filepath.display().to_string()
     }
 
@@ -163,11 +170,11 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
     let mut hashes: Vec<FileHash> = gather_paths(base)
         .collect::<Vec<PathBuf>>()
         .par_iter()
-        .map(|file| FileHash::new(&base.join(file), base).unwrap())
+        .map(|file| FileHash::new(&base.join(file)).unwrap())
         .progress()
         .collect();
 
-    hashes.sort_by_key(FileHash::get_rel_path);
+    hashes.sort_by_key(FileHash::get_filepath);
     hashes
 }
 
@@ -189,13 +196,11 @@ impl FilePair {
     /// Function that is called on each path to hash
     pub fn new(
         relative_path: &PathBuf,
-        first_base: &PathBuf,
-        second_base: &PathBuf,
+        first_base: &Path,
+        second_base: &Path,
     ) -> Result<Self, ToolError> {
-        let first_hash =
-            FileHash::new(&first_base.join(relative_path), first_base)?.get_hash_string();
-        let second_hash =
-            FileHash::new(&second_base.join(relative_path), second_base)?.get_hash_string();
+        let first_hash = FileHash::new(&first_base.join(relative_path))?.get_hash_string();
+        let second_hash = FileHash::new(&second_base.join(relative_path))?.get_hash_string();
         Ok(Self {
             relative_path: relative_path.clone(),
             first_hash,
@@ -412,8 +417,14 @@ mod tests {
         /// Path to file1
         file1_path: PathBuf,
 
-        /// Path to test files
-        test_files_dir: PathBuf,
+        /// Path to file2
+        file2_dir1_path: PathBuf,
+
+        /// Path to file4
+        file4_dir1_path: PathBuf,
+
+        /// Path to file5
+        file5_path: PathBuf,
     }
 
     impl TestData {
@@ -454,7 +465,9 @@ mod tests {
                 dir2_path: PathBuf::from("test_files/dir2"),
                 dir3_path: PathBuf::from("test_files/dir3"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
-                test_files_dir: PathBuf::from("test_files"),
+                file2_dir1_path: PathBuf::from("test_files/dir1/file2.txt"),
+                file4_dir1_path: PathBuf::from("test_files/dir1/file4.txt"),
+                file5_path: PathBuf::from("test_files/dir1/subdir/file5.txt"),
             }
         }
     }
@@ -484,50 +497,7 @@ mod tests {
         #[test]
         fn test_creation() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path).unwrap();
-
-            assert_eq!(
-                result,
-                FileHash {
-                    filepath: PathBuf::from("file1.txt"),
-                    hash: test_data.file1_hash,
-                }
-            );
-        }
-
-        /// Test creation on an empty dir inside the base dir
-        #[test]
-        fn test_creation_empty_dir() {
-            let test_data = TestData::new();
-            let result = FileHash::new(&test_data.dir1_path, &test_data.test_files_dir).unwrap();
-            assert_eq!(
-                result,
-                FileHash {
-                    filepath: PathBuf::from("dir1"),
-                    hash: Vec::new(),
-                },
-            );
-        }
-
-        /// Test creation on the base dir
-        #[test]
-        fn test_creation_base_dir() {
-            let test_data = TestData::new();
-            let result = FileHash::new(&test_data.dir1_path, &test_data.dir1_path).unwrap();
-            assert_eq!(
-                result,
-                FileHash {
-                    filepath: PathBuf::from(""),
-                    hash: Vec::new(),
-                }
-            );
-        }
-
-        /// Test creation on file where `filepath` == `base_path`
-        #[test]
-        fn test_create_file_is_base() {
-            let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path, &test_data.file1_path).unwrap();
+            let result = FileHash::new(&test_data.file1_path).unwrap();
 
             assert_eq!(
                 result,
@@ -538,22 +508,34 @@ mod tests {
             );
         }
 
-        /// Test `get_rel_path` method
+        /// Test creation on the base dir
         #[test]
-        fn test_get_rel_path() {
+        fn test_creation_base_dir() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path)
-                .unwrap()
-                .get_rel_path();
+            let result = FileHash::new(&test_data.dir1_path).unwrap();
+            assert_eq!(
+                result,
+                FileHash {
+                    filepath: test_data.dir1_path,
+                    hash: Vec::new(),
+                }
+            );
+        }
 
-            assert_eq!(result, String::from("file1.txt"));
+        /// Test `get_filepath` method
+        #[test]
+        fn test_get_filepath() {
+            let test_data = TestData::new();
+            let result = FileHash::new(&test_data.file1_path).unwrap().get_filepath();
+
+            assert_eq!(result, test_data.file1_path.display().to_string());
         }
 
         /// Test `get_hash_string` method
         #[test]
         fn test_get_hash_string() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path, &test_data.dir1_path)
+            let result = FileHash::new(&test_data.file1_path)
                 .unwrap()
                 .get_hash_string();
 
@@ -568,19 +550,19 @@ mod tests {
         let results = compute_hashes_for_dir(&test_data.dir1_path);
         let expected = vec![
             FileHash {
-                filepath: PathBuf::from("file1.txt"),
+                filepath: test_data.file1_path,
                 hash: test_data.file1_hash,
             },
             FileHash {
-                filepath: PathBuf::from("file2.txt"),
+                filepath: test_data.file2_dir1_path,
                 hash: test_data.file2_hash_dir1,
             },
             FileHash {
-                filepath: PathBuf::from("file4.txt"),
+                filepath: test_data.file4_dir1_path,
                 hash: test_data.file4_hash,
             },
             FileHash {
-                filepath: PathBuf::from(format!("subdir{MAIN_SEPARATOR}file5.txt")),
+                filepath: test_data.file5_path,
                 hash: test_data.file5_hash,
             },
         ];
