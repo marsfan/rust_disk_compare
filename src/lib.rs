@@ -8,6 +8,7 @@
 pub mod cli;
 pub mod errors;
 
+use core::cmp::Ordering;
 use core::fmt::Write as _;
 use std::fs::File;
 use std::io;
@@ -63,13 +64,13 @@ impl FileHash {
     fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
         if !filepath.is_file() {
             return Err(ToolError::NotAFileError {
-                filepath: filepath.display().to_string(),
+                filepath: filepath.clone(),
             });
         }
         let mut hasher = Sha256::new();
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
-            kind: error.kind(),
-            filepath: filepath.display().to_string(),
+            source: error,
+            filepath: filepath.clone(),
         })?;
 
         // This whole io::copy thing came from here
@@ -77,7 +78,10 @@ impl FileHash {
         // Uses way less memory than reading the file directly
         // Guessing its sending copying the file in chunks?
 
-        io::copy(&mut file, &mut hasher)?;
+        io::copy(&mut file, &mut hasher).map_err(|e| ToolError::ByteCopyError {
+            source: e,
+            filepath: filepath.clone(),
+        })?;
         Ok(hasher.finalize().to_vec())
     }
 
@@ -92,7 +96,16 @@ impl FileHash {
     /// # Errors
     ///   Will return an error if not able to convert the path to a relative path
     pub fn get_rel_filepath(&self, base: &PathBuf) -> Result<String, ToolError> {
-        Ok(self.filepath.strip_prefix(base)?.display().to_string())
+        Ok(self
+            .filepath
+            .strip_prefix(base)
+            .map_err(|e| ToolError::StripPrefixError {
+                source: e,
+                filepath: self.filepath.clone(),
+                base: base.clone(),
+            })?
+            .display()
+            .to_string())
     }
 
     /// # Get the path to the file as a strring
@@ -251,7 +264,12 @@ impl ToRelativePath for DirEntry {
         Ok(self
             .clone()
             .into_path()
-            .strip_prefix(base_path)?
+            .strip_prefix(base_path)
+            .map_err(|e| ToolError::StripPrefixError {
+                source: e,
+                filepath: self.clone().into_path(),
+                base: base_path.to_path_buf(),
+            })?
             .to_path_buf())
     }
 }
