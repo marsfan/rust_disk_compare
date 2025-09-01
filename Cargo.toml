@@ -58,7 +58,6 @@ print_stderr = "allow"
 
 # Rules we might want to enable later
 missing_inline_in_public_items = "allow"
-shadow_reuse = "allow"
 must_use_candidate = "allow"
 unwrap_used = "allow"
 

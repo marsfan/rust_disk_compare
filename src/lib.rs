@@ -289,12 +289,14 @@ impl PathComparison {
         let second_files: HashSet<PathBuf> = gather_paths(second_path).collect();
 
         // Get sets of the files in one or the other path,
-        let first_not_second = first_files
+        let mut first_not_second: Vec<String> = first_files
             .difference(&second_files)
-            .map(|v| v.display().to_string());
-        let second_not_first = second_files
+            .map(|v| v.display().to_string())
+            .collect();
+        let mut second_not_first: Vec<String> = second_files
             .difference(&first_files)
-            .map(|v| v.display().to_string());
+            .map(|v| v.display().to_string())
+            .collect();
 
         // For files in both paths, create a FilePair object.
         // This will compute hashes for the files.
@@ -321,10 +323,7 @@ impl PathComparison {
             .flatten() // Calling flatten here is the same as calling `.filter_map(|v| v)`
             .collect();
 
-        let mut first_not_second: Vec<String> = first_not_second.collect();
-        let mut second_not_first: Vec<String> = second_not_first.collect();
-
-        // Sort teh outputs so that multiple runs produce predictable outputs
+        // Sort the outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
         second_not_first.sort();
         different_hashes.sort();
