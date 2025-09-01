@@ -60,6 +60,7 @@ print_stderr = "allow"
 missing_inline_in_public_items = "allow"
 must_use_candidate = "allow"
 unwrap_used = "allow"
+pattern_type_mismatch = "allow"
 
 
 # Individual rules instead of groups

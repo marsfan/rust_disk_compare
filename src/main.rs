@@ -19,12 +19,19 @@ fn main() {
         PathComparison::new(&args.first_path, &second_path).print_results();
     } else {
         println!("Computing hashes for all files in the given path.");
-        for hash in compute_hashes_for_dir(&args.first_path) {
-            match hash.get_rel_filepath(&args.first_path) {
-                Ok(path) => println!("{}:\t{}", path, hash.get_hash_string()),
+        // FIXME: Move some of this into lib so that we can test it
+        for hash_result in compute_hashes_for_dir(&args.first_path) {
+            match hash_result {
+                Ok(hash) => match hash.get_rel_filepath(&args.first_path) {
+                    Ok(path) => println!("{}:\t{}", path, hash.get_hash_string()),
+                    Err(e) => eprintln!(
+                        "Failed getting relative path for {}. Error: {e}",
+                        hash.get_filepath()
+                    ),
+                },
                 Err(e) => eprintln!(
-                    "Failed getting relative path for {}. Error: {e}",
-                    hash.get_filepath()
+                    "Failed computing hash for file '{}'.\n\tError Message: {e}",
+                    e.get_filepath().display()
                 ),
             }
         }

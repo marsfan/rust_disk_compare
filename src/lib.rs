@@ -166,29 +166,44 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
     })
 }
 
+/// Compare two `Result<FileHash, ToolError>` elements by their filepaths
+///
+/// If both elements are the same [`Result`] variant, then the filepaths are compare
+/// if they are not of the same varriant, then the element that is [`Ok`] is considered smaller
+///
+/// # Arguments
+///   * `a`: The first of the two elements to compare
+///   * `b`: The second of the two elements to compare
+///
+/// # Returns
+///   [`Ordering`] variant according to aforementioned sorting rules
+fn compare_hash_result(
+    a: &Result<FileHash, ToolError>,
+    b: &Result<FileHash, ToolError>,
+) -> Ordering {
+    match (a, b) {
+        (Ok(hash_a), Ok(hash_b)) => hash_a.get_filepath().cmp(&hash_b.get_filepath()),
+        (Ok(_), Err(_)) => Ordering::Less,
+        (Err(_), Ok(_)) => Ordering::Greater,
+        (Err(err_a), Err(err_b)) => err_a.get_filepath().cmp(&err_b.get_filepath()),
+    }
+}
+
 /// Compute hashes for all files in a directory, recursively
 ///
 /// # Arguments
 ///   * `base`: The directory to search through
 ///
 /// # Returns
-///   Vector of `FileHash` objects for all files found recursively in the directory
-///
-/// # Panics
-///   Will panic if computing the file hash fails.
-pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<FileHash> {
-    // FIXME: Bubble error up further so we can print out all files that
-    // failed hashing at the end (outside of parallel loop)
-    // Will require modifying the hash_path function to return a
-    // vec of result instead of what it currently does.
-    let mut hashes: Vec<FileHash> = gather_paths(base)
+///   Vector of `FileHash` objects for all files found recursively in the directory, or errors if hashing a file failed
+pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<Result<FileHash, ToolError>> {
+    let mut hashes: Vec<Result<FileHash, ToolError>> = gather_paths(base)
         .collect::<Vec<PathBuf>>()
         .par_iter()
-        .map(|file| FileHash::new(&base.join(file)).unwrap())
+        .map(|file| FileHash::new(&base.join(file)))
         .progress()
         .collect();
-
-    hashes.sort_by_key(FileHash::get_filepath);
+    hashes.sort_by(compare_hash_result);
     hashes
 }
 
@@ -396,7 +411,9 @@ impl PathComparison {
     clippy::unwrap_used,
     reason = "Unwraps in unit tests are ok, as they will display as failed tests"
 )]
+// FIXME: Need tests for cases. Look for unwraps() in test code to see where that's needed
 mod tests {
+    use core::iter::zip;
     use std::path::MAIN_SEPARATOR;
 
     use super::*;
@@ -572,30 +589,88 @@ mod tests {
         }
     }
 
+    /// Test [`compare_hash_result`] function
+    #[test]
+    fn test_compare_hash_result() {
+        let cases = [
+            (
+                Ok(FileHash {
+                    filepath: PathBuf::from("hello/world"),
+                    hash: vec![0x01, 0x02],
+                }),
+                Ok(FileHash {
+                    filepath: PathBuf::from("hello/apple"),
+                    hash: vec![0x01, 0x02],
+                }),
+                Ordering::Greater,
+            ),
+            (
+                Err(ToolError::FileReadError {
+                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
+                    filepath: PathBuf::from("hello/apple"),
+                }),
+                Err(ToolError::FileReadError {
+                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
+                    filepath: PathBuf::from("hello/world"),
+                }),
+                Ordering::Less,
+            ),
+            (
+                Ok(FileHash {
+                    filepath: PathBuf::from("hello/apple"),
+                    hash: vec![0x01, 0x02],
+                }),
+                Err(ToolError::FileReadError {
+                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
+
+                    filepath: PathBuf::from("hello/world"),
+                }),
+                Ordering::Less,
+            ),
+            (
+                Err(ToolError::FileReadError {
+                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
+                    filepath: PathBuf::from("hello/world"),
+                }),
+                Ok(FileHash {
+                    filepath: PathBuf::from("hello/apple"),
+                    hash: vec![0x01, 0x02],
+                }),
+                Ordering::Greater,
+            ),
+        ];
+
+        for (a, b, expected) in cases {
+            assert_eq!(compare_hash_result(&a, &b), expected);
+        }
+    }
+
     /// Basic test of computing hashes for a folder
     #[test]
     fn test_compute_hashes_for_dir() {
         let test_data = TestData::new();
         let results = compute_hashes_for_dir(&test_data.dir1_path);
-        let expected = vec![
-            FileHash {
+        let expected: Vec<Result<FileHash, ToolError>> = vec![
+            Ok(FileHash {
                 filepath: test_data.file1_path,
                 hash: test_data.file1_hash,
-            },
-            FileHash {
+            }),
+            Ok(FileHash {
                 filepath: test_data.file2_dir1_path,
                 hash: test_data.file2_hash_dir1,
-            },
-            FileHash {
+            }),
+            Ok(FileHash {
                 filepath: test_data.file4_dir1_path,
                 hash: test_data.file4_hash,
-            },
-            FileHash {
+            }),
+            Ok(FileHash {
                 filepath: test_data.file5_path,
                 hash: test_data.file5_hash,
-            },
+            }),
         ];
-        assert_eq!(results, expected);
+        for (r, e) in zip(results, expected) {
+            assert_eq!(r.unwrap(), e.unwrap());
+        }
     }
 
     /// Test the `gather_paths` function
