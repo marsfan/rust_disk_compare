@@ -375,6 +375,10 @@ impl PathComparison {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Unwraps in unit tests are ok, as they will display as failed tests"
+)]
 mod tests {
     use std::path::MAIN_SEPARATOR;
 
