@@ -143,6 +143,7 @@ impl FileHash {
 fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(base).into_iter().filter_map(|v| {
         let entry = v.unwrap();
+        #[expect(clippy::unwrap_used, reason="WalkDir gives files underneath the base. We are converting all paths to be relative to that base, so this should never panic")]
         let path = entry.to_rel_path(base).unwrap();
         if entry.file_type().is_dir() {
             None
