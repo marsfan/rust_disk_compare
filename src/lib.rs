@@ -297,7 +297,8 @@ pub struct PathComparison {
     /// Files in second path, but not first
     second_not_first: Vec<String>,
     /// Files in both, but with differing hashes.
-    different_hashes: Vec<String>,
+    /// Uses a Result<> so we can info on files that may have failed to properly hash
+    different_hashes: Vec<Result<String, ToolError>>,
     // Files in both, with matching hashes
     // same_hashes: Vec<String>,
 }
@@ -333,7 +334,7 @@ impl PathComparison {
 
         // For files in both paths, create a FilePair object.
         // This will compute hashes for the files.
-        let mut different_hashes: Vec<String> = first_files
+        let mut different_hashes: Vec<Result<String, ToolError>> = first_files
             .intersection(&second_files)
             // Need to collect to a vec here first so that we know how many elements we are hashing
             // or progress bar won't work
@@ -344,22 +345,32 @@ impl PathComparison {
             // Will require modifying the hash_path function to return a
             // vec of result instead of what it currently does.
             .map(|v| {
-                let pair = FilePair::new(v, first_path, second_path).unwrap();
-                if pair.same_hash() {
-                    None
-                } else {
-                    Some(pair.get_relative_path_string())
+                let pair_r = FilePair::new(v, first_path, second_path);
+                match pair_r {
+                    Ok(pair) => {
+                        if pair.same_hash() {
+                            None
+                        } else {
+                            Some(Ok(pair.get_relative_path_string()))
+                        }
+                    }
+                    Err(e) => Some(Err(e)),
                 }
             })
             .progress()
             // Have to split up filtering mismatches, and computing hashes, or the progress bar won't worrk
-            .flatten() // Calling flatten here is the same as calling `.filter_map(|v| v)`
+            .filter_map(|a| a)
             .collect();
 
         // Sort the outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
         second_not_first.sort();
-        different_hashes.sort();
+        different_hashes.sort_by(|a: &Result<String, ToolError>, b| match (a, b) {
+            (Ok(hash_a), Ok(hash_b)) => hash_a.cmp(hash_b),
+            (Ok(_), Err(_)) => Ordering::Less,
+            (Err(_), Ok(_)) => Ordering::Greater,
+            (Err(err_a), Err(err_b)) => err_a.get_filepath().cmp(&err_b.get_filepath()),
+        });
 
         Self {
             first_not_second,
@@ -375,9 +386,29 @@ impl PathComparison {
         if self.any_differences() {
             Self::print_vec("In first path, but not second", &self.first_not_second);
             Self::print_vec("In second path, but not first:", &self.second_not_first);
-            Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
+            Self::print_result_vec("In both paths, but hashes differ:", &self.different_hashes);
         } else {
             println!("No differences found between supplied paths.");
+        }
+    }
+
+    /// Print the given info line and vector values if the vector length > 0 for result vec.
+    ///
+    /// # Arguments:
+    /// * `description`: The description text to print at the start
+    /// * `results`: The vector of the paths to print out.
+    fn print_result_vec(description: &str, results: &Vec<Result<String, ToolError>>) {
+        if !results.is_empty() {
+            println!("{description}");
+            for result in results {
+                match result {
+                    Ok(path) => println!("\t{path}"),
+                    Err(e) => eprintln!(
+                        "Failed computing hash for file '{}'.\n\tError Message: {e}",
+                        e.get_filepath().display()
+                    ),
+                }
+            }
         }
     }
 
@@ -385,12 +416,12 @@ impl PathComparison {
     ///
     /// # Arguments:
     /// * `description`: The description text to print at the start
-    /// * `files`: The vector of the files to print out.
-    fn print_vec(description: &str, files: &Vec<String>) {
-        if !files.is_empty() {
+    /// * `paths`: The vector of the paths to print out.
+    fn print_vec(description: &str, paths: &Vec<String>) {
+        if !paths.is_empty() {
             println!("{description}");
-            for file in files {
-                println!("\t{file}");
+            for path in paths {
+                println!("\t{path}");
             }
         }
     }
@@ -668,6 +699,7 @@ mod tests {
                 hash: test_data.file5_hash,
             }),
         ];
+        assert_eq!(results.len(), expected.len());
         for (r, e) in zip(results, expected) {
             assert_eq!(r.unwrap(), e.unwrap());
         }
@@ -793,7 +825,11 @@ mod tests {
                 ]
             );
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
-            assert_eq!(comparsion.different_hashes, vec![String::from("file2.txt")]);
+            let expected = vec![String::from("file2.txt")];
+            assert_eq!(comparsion.different_hashes.len(), expected.len());
+            for (e, a) in zip(comparsion.different_hashes, expected) {
+                assert_eq!(e.unwrap(), a);
+            }
         }
 
         /// Tests for the `any_differences` method
@@ -828,7 +864,7 @@ mod tests {
                 let comparsion = PathComparison {
                     first_not_second: Vec::new(),
                     second_not_first: Vec::new(),
-                    different_hashes: Vec::from([String::from("abc")]),
+                    different_hashes: Vec::from([Ok(String::from("abc"))]),
                 };
                 assert_eq!(comparsion.any_differences(), true);
             }
