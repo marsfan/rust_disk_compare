@@ -7,158 +7,18 @@
 
 pub mod cli;
 pub mod errors;
+mod hasher;
 
-use core::cmp::Ordering;
-use core::fmt::Write as _;
-use std::fs::File;
-use std::io;
 use std::path::PathBuf;
 use std::{collections::HashSet, path::Path};
 
 use crate::errors::ToolError;
 
+use crate::hasher::{FileHash, compare_hash_result};
 use indicatif::ParallelProgressIterator as _;
 use rayon::iter::IntoParallelRefIterator as _;
 use rayon::prelude::ParallelIterator as _;
-use sha2::{Digest as _, Sha256};
 use walkdir::{DirEntry, WalkDir};
-
-/// A single file and its hash
-#[derive(PartialEq, Debug, Eq, PartialOrd, Ord)]
-pub struct FileHash {
-    /// The path to the file that was hashed
-    filepath: PathBuf,
-    /// The file's hash
-    hash: Vec<u8>,
-}
-
-impl FileHash {
-    /// Create a new instance of the struct
-    ///
-    /// # Arguments
-    ///   * `filepath`: Path to the file being hashed
-    ///   * `hash`: The bytes of the computed hash
-    ///
-    /// # Returns:
-    ///   The created `FileHash` instance.
-    ///
-    /// # Note
-    ///   This does not automatically compute the hash from the file. It is instead for
-    ///   creating a new instance from pre-existing values. For computing the hash from
-    ///   a file, use [`FileHash::try_from`]
-    pub fn new(filepath: PathBuf, hash: Vec<u8>) -> Self {
-        Self { filepath, hash }
-    }
-
-    /// Compute the hash of the given file
-    ///
-    /// # Arguments
-    /// * `filepath`: Path to the file to hash.
-    fn hash_file(filepath: &PathBuf) -> Result<Vec<u8>, ToolError> {
-        if !filepath.is_file() {
-            return Err(ToolError::NotAFileError {
-                filepath: filepath.clone(),
-            });
-        }
-        let mut hasher = Sha256::new();
-        let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
-            source: error,
-            filepath: filepath.clone(),
-        })?;
-
-        // This whole io::copy thing came from here
-        // https://www.reddit.com/r/rust/comments/tuxpxf/comment/i368ryk/
-        // Uses way less memory than reading the file directly
-        // Guessing its sending copying the file in chunks?
-
-        io::copy(&mut file, &mut hasher).map_err(|e| ToolError::ByteCopyError {
-            source: e,
-            filepath: filepath.clone(),
-        })?;
-        Ok(hasher.finalize().to_vec())
-    }
-
-    /// Get the relative path to the file as a string
-    ///
-    /// # Arguments
-    ///   base: Base directory to get path relative to.
-    ///
-    /// # Returns
-    ///   The relative file path as a string
-    ///
-    /// # Errors
-    ///   Will return an error if not able to convert the path to a relative path
-    pub fn get_rel_filepath(&self, base: &PathBuf) -> Result<String, ToolError> {
-        Ok(self
-            .filepath
-            .strip_prefix(base)
-            .map_err(|e| ToolError::StripPrefixError {
-                source: e,
-                filepath: self.filepath.clone(),
-                base: base.clone(),
-            })?
-            .display()
-            .to_string())
-    }
-
-    /// # Get the path to the file as a strring
-    ///
-    /// # Returns
-    ///   The path to the file as a string
-    pub fn get_filepath(&self) -> String {
-        self.filepath.display().to_string()
-    }
-
-    /// Get the file hash represented as a string
-    ///
-    /// # Returns
-    ///   The file's hash as a string of hexadecimal values
-    pub fn get_hash_string(&self) -> String {
-        Self::hash_to_string(&self.hash)
-        // self.hash.clone()
-    }
-
-    /// Convert the given vector hash to a string
-    ///
-    /// Arguments:
-    ///   - `hash`: The hash to convert.
-    ///
-    /// Returns:
-    ///   The hash as a string.
-    fn hash_to_string(hash: &[u8]) -> String {
-        // This is more performant than using map and format!
-        // See https://rust-lang.github.io/rust-clippy/master/index.html#/format_collect
-        hash.iter().fold(String::new(), |mut output, digit| {
-            #[expect(
-                clippy::unwrap_used,
-                reason = "As per above link, write!() to a String will never error"
-            )]
-            write!(output, "{digit:02x}").unwrap();
-            output
-        })
-    }
-}
-
-impl TryFrom<&PathBuf> for FileHash {
-    type Error = ToolError;
-
-    /// Create the new hash from the given path.
-    ///
-    /// # Arguments
-    ///   * `value`: The path to the file to hash.
-    ///
-    /// # Returns:
-    ///   The created `FileHash` instance.
-    ///
-    /// # Errors
-    ///   Will error out if an error occurred when computing the hash for the file
-    fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
-        Ok(Self {
-            filepath: value.clone(),
-            hash: Self::hash_file(value)?,
-        })
-    }
-}
 
 /// Recursively find all files in a directory
 ///
@@ -199,29 +59,6 @@ fn split_by_result<T>(data: Vec<Result<T, ToolError>>) -> (Vec<T>, Vec<ToolError
         }
     }
     (ok_vec, err_vec)
-}
-
-/// Compare two `Result<FileHash, ToolError>` elements by their filepaths
-///
-/// If both elements are the same [`Result`] variant, then the filepaths are compare
-/// if they are not of the same varriant, then the element that is [`Ok`] is considered smaller
-///
-/// # Arguments
-///   * `a`: The first of the two elements to compare
-///   * `b`: The second of the two elements to compare
-///
-/// # Returns
-///   [`Ordering`] variant according to aforementioned sorting rules
-fn compare_hash_result(
-    a: &Result<FileHash, ToolError>,
-    b: &Result<FileHash, ToolError>,
-) -> Ordering {
-    match (a, b) {
-        (Ok(hash_a), Ok(hash_b)) => hash_a.get_filepath().cmp(&hash_b.get_filepath()),
-        (Ok(_), Err(_)) => Ordering::Less,
-        (Err(_), Ok(_)) => Ordering::Greater,
-        (Err(err_a), Err(err_b)) => err_a.get_filepath().cmp(&err_b.get_filepath()),
-    }
 }
 
 /// Compute hashes for all files in a directory, recursively
@@ -489,46 +326,46 @@ mod tests {
     /// Info used in tests
     pub struct TestData {
         /// String of hash for file1.txt
-        file1_hash_str: String,
+        pub file1_hash_str: String,
 
         /// String of hash for file1.txt in dir1
-        file2_hash_str_dir1: String,
+        pub file2_hash_str_dir1: String,
 
         /// String of hash for file1.txt in dir2
-        file2_hash_str_dir2: String,
+        pub file2_hash_str_dir2: String,
 
         /// File1.txt hash
-        file1_hash: Vec<u8>,
+        pub file1_hash: Vec<u8>,
 
         /// File2.txt hash in dir 1
-        file2_hash_dir1: Vec<u8>,
+        pub file2_hash_dir1: Vec<u8>,
 
         /// File4.txt hash
-        file4_hash: Vec<u8>,
+        pub file4_hash: Vec<u8>,
 
         /// File5.txt hash
-        file5_hash: Vec<u8>,
+        pub file5_hash: Vec<u8>,
 
         /// Path to dir1
-        dir1_path: PathBuf,
+        pub dir1_path: PathBuf,
 
         /// Path to dir2
-        dir2_path: PathBuf,
+        pub dir2_path: PathBuf,
 
         /// Path to dir3
-        dir3_path: PathBuf,
+        pub dir3_path: PathBuf,
 
         /// Path to file1
-        file1_path: PathBuf,
+        pub file1_path: PathBuf,
 
         /// Path to file2
-        file2_dir1_path: PathBuf,
+        pub file2_dir1_path: PathBuf,
 
         /// Path to file4
-        file4_path: PathBuf,
+        pub file4_path: PathBuf,
 
         /// Path to file5
-        file5_path: PathBuf,
+        pub file5_path: PathBuf,
     }
 
     impl TestData {
@@ -576,133 +413,6 @@ mod tests {
         }
     }
 
-    mod test_file_hash {
-        use super::*;
-
-        /// Test the `hash_file` method
-        #[test]
-        fn test_hash_file() {
-            let test_data = TestData::new();
-            let hash = FileHash::hash_file(&test_data.file1_path).unwrap();
-            assert_eq!(hash, test_data.file1_hash);
-        }
-
-        /// Test the `hash_file` method on a directory
-        #[test]
-        fn test_hashfile_on_dir() {
-            let test_data = TestData::new();
-            let result = FileHash::hash_file(&test_data.dir1_path).unwrap_err();
-            if let ToolError::NotAFileError { filepath } = result {
-                assert_eq!(filepath, test_data.dir1_path);
-            } else {
-                panic!("Wrong enum variant");
-            }
-        }
-
-        /// Test creation and proper hashing.
-        #[test]
-        fn test_creation() {
-            let test_data = TestData::new();
-            let result = FileHash::try_from(&test_data.file1_path).unwrap();
-
-            assert_eq!(
-                result,
-                FileHash {
-                    filepath: test_data.file1_path,
-                    hash: test_data.file1_hash,
-                }
-            );
-        }
-
-        /// Test `get_rel_filepath` method
-        #[test]
-        fn test_get_rel_filepath() {
-            let test_data = TestData::new();
-            let result = FileHash::try_from(&test_data.file1_path)
-                .unwrap()
-                .get_rel_filepath(&test_data.dir1_path);
-            assert_eq!(result.unwrap(), "file1.txt");
-        }
-
-        /// Test `get_filepath` method
-        #[test]
-        fn test_get_filepath() {
-            let test_data = TestData::new();
-            let result = FileHash::try_from(&test_data.file1_path)
-                .unwrap()
-                .get_filepath();
-
-            assert_eq!(result, test_data.file1_path.display().to_string());
-        }
-
-        /// Test `get_hash_string` method
-        #[test]
-        fn test_get_hash_string() {
-            let test_data = TestData::new();
-            let result = FileHash::try_from(&test_data.file1_path)
-                .unwrap()
-                .get_hash_string();
-
-            assert_eq!(result, test_data.file1_hash_str);
-        }
-    }
-
-    /// Test [`compare_hash_result`] function
-    #[test]
-    fn test_compare_hash_result() {
-        let cases = [
-            (
-                Ok(FileHash {
-                    filepath: PathBuf::from("hello/world"),
-                    hash: vec![0x01, 0x02],
-                }),
-                Ok(FileHash {
-                    filepath: PathBuf::from("hello/apple"),
-                    hash: vec![0x01, 0x02],
-                }),
-                Ordering::Greater,
-            ),
-            (
-                Err(ToolError::FileReadError {
-                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
-                    filepath: PathBuf::from("hello/apple"),
-                }),
-                Err(ToolError::FileReadError {
-                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
-                    filepath: PathBuf::from("hello/world"),
-                }),
-                Ordering::Less,
-            ),
-            (
-                Ok(FileHash {
-                    filepath: PathBuf::from("hello/apple"),
-                    hash: vec![0x01, 0x02],
-                }),
-                Err(ToolError::FileReadError {
-                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
-
-                    filepath: PathBuf::from("hello/world"),
-                }),
-                Ordering::Less,
-            ),
-            (
-                Err(ToolError::FileReadError {
-                    source: io::Error::new(io::ErrorKind::AddrInUse, "oh no"),
-                    filepath: PathBuf::from("hello/world"),
-                }),
-                Ok(FileHash {
-                    filepath: PathBuf::from("hello/apple"),
-                    hash: vec![0x01, 0x02],
-                }),
-                Ordering::Greater,
-            ),
-        ];
-
-        for (a, b, expected) in cases {
-            assert_eq!(compare_hash_result(&a, &b), expected);
-        }
-    }
-
     /// Basic test of computing hashes for a folder
     #[test]
     fn test_compute_hashes_for_dir() {
@@ -710,22 +420,10 @@ mod tests {
         let test_data = TestData::new();
         let results = compute_hashes_for_dir(&test_data.dir1_path);
         let expected = vec![
-            FileHash {
-                filepath: test_data.file1_path,
-                hash: test_data.file1_hash,
-            },
-            FileHash {
-                filepath: test_data.file2_dir1_path,
-                hash: test_data.file2_hash_dir1,
-            },
-            FileHash {
-                filepath: test_data.file4_path,
-                hash: test_data.file4_hash,
-            },
-            FileHash {
-                filepath: test_data.file5_path,
-                hash: test_data.file5_hash,
-            },
+            FileHash::new(test_data.file1_path, test_data.file1_hash),
+            FileHash::new(test_data.file2_dir1_path, test_data.file2_hash_dir1),
+            FileHash::new(test_data.file4_path, test_data.file4_hash),
+            FileHash::new(test_data.file5_path, test_data.file5_hash),
         ];
         assert_eq!(results.0, expected);
         assert!(results.1.is_empty());
