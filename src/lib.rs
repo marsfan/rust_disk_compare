@@ -166,6 +166,27 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
     })
 }
 
+/// Split a vector of results into vectors of Ok and Err elements
+///
+/// # Arguments
+///   * `data`: The vector to split.
+///
+/// # Returns
+///   Tuple of two vectors. The first vector is a vector of the elements of
+///   the input that were `Ok`, while the second is a vector of the error messages
+///   for elements there were `Err`
+fn split_by_result<T>(data: Vec<Result<T, ToolError>>) -> (Vec<T>, Vec<ToolError>) {
+    let mut ok_vec = Vec::new();
+    let mut err_vec = Vec::new();
+    for elem in data {
+        match elem {
+            Ok(a) => ok_vec.push(a),
+            Err(e) => err_vec.push(e),
+        }
+    }
+    (ok_vec, err_vec)
+}
+
 /// Compare two `Result<FileHash, ToolError>` elements by their filepaths
 ///
 /// If both elements are the same [`Result`] variant, then the filepaths are compare
@@ -196,7 +217,7 @@ fn compare_hash_result(
 ///
 /// # Returns
 ///   Vector of `FileHash` objects for all files found recursively in the directory, or errors if hashing a file failed
-pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<Result<FileHash, ToolError>> {
+pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>) {
     let mut hashes: Vec<Result<FileHash, ToolError>> = gather_paths(base)
         .collect::<Vec<PathBuf>>()
         .par_iter()
@@ -204,7 +225,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> Vec<Result<FileHash, ToolError>
         .progress()
         .collect();
     hashes.sort_by(compare_hash_result);
-    hashes
+    split_by_result(hashes)
 }
 
 /// A pair of files that both have the the same relative path to their bases
@@ -290,6 +311,7 @@ impl ToRelativePath for DirEntry {
 }
 
 /// Results from comparing two paths.
+#[derive(Default)]
 pub struct PathComparison {
     // TODO: Add a member for identical files?
     /// Files in the first path, but not the second.
@@ -298,7 +320,10 @@ pub struct PathComparison {
     second_not_first: Vec<String>,
     /// Files in both, but with differing hashes.
     /// Uses a Result<> so we can info on files that may have failed to properly hash
-    different_hashes: Vec<Result<String, ToolError>>,
+    different_hashes: Vec<String>,
+
+    /// Errors that occurred during hashing
+    errors: Vec<ToolError>,
     // Files in both, with matching hashes
     // same_hashes: Vec<String>,
 }
@@ -334,7 +359,7 @@ impl PathComparison {
 
         // For files in both paths, create a FilePair object.
         // This will compute hashes for the files.
-        let mut different_hashes: Vec<Result<String, ToolError>> = first_files
+        let hash_results: Vec<Result<String, ToolError>> = first_files
             .intersection(&second_files)
             // Need to collect to a vec here first so that we know how many elements we are hashing
             // or progress bar won't work
@@ -362,20 +387,19 @@ impl PathComparison {
             .filter_map(|a| a)
             .collect();
 
+        let (mut different_hashes, mut errors) = split_by_result(hash_results);
+
         // Sort the outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
         second_not_first.sort();
-        different_hashes.sort_by(|a: &Result<String, ToolError>, b| match (a, b) {
-            (Ok(hash_a), Ok(hash_b)) => hash_a.cmp(hash_b),
-            (Ok(_), Err(_)) => Ordering::Less,
-            (Err(_), Ok(_)) => Ordering::Greater,
-            (Err(err_a), Err(err_b)) => err_a.get_filepath().cmp(&err_b.get_filepath()),
-        });
+        different_hashes.sort();
+        errors.sort_by_key(ToolError::get_filepath);
 
         Self {
             first_not_second,
             second_not_first,
             different_hashes,
+            errors,
         }
     }
 
@@ -386,29 +410,16 @@ impl PathComparison {
         if self.any_differences() {
             Self::print_vec("In first path, but not second", &self.first_not_second);
             Self::print_vec("In second path, but not first:", &self.second_not_first);
-            Self::print_result_vec("In both paths, but hashes differ:", &self.different_hashes);
-        } else {
-            println!("No differences found between supplied paths.");
-        }
-    }
+            Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
 
-    /// Print the given info line and vector values if the vector length > 0 for result vec.
-    ///
-    /// # Arguments:
-    /// * `description`: The description text to print at the start
-    /// * `results`: The vector of the paths to print out.
-    fn print_result_vec(description: &str, results: &Vec<Result<String, ToolError>>) {
-        if !results.is_empty() {
-            println!("{description}");
-            for result in results {
-                match result {
-                    Ok(path) => println!("\t{path}"),
-                    Err(e) => eprintln!(
-                        "Failed computing hash for file '{}'.\n\tError Message: {e}",
-                        e.get_filepath().display()
-                    ),
+            if !self.errors.is_empty() {
+                eprintln!("Some files encountered errors during hashing:");
+                for error in &self.errors {
+                    eprintln!("\t{}: {error}", error.get_filepath().display());
                 }
             }
+        } else {
+            println!("No differences found between supplied paths.");
         }
     }
 
@@ -434,6 +445,7 @@ impl PathComparison {
         (!self.first_not_second.is_empty())
             || (!self.second_not_first.is_empty())
             || (!self.different_hashes.is_empty())
+            || (!self.errors.is_empty())
     }
 }
 
@@ -444,7 +456,6 @@ impl PathComparison {
 )]
 // FIXME: Need tests for cases. Look for unwraps() in test code to see where that's needed
 mod tests {
-    use core::iter::zip;
     use std::path::MAIN_SEPARATOR;
 
     use super::*;
@@ -679,30 +690,29 @@ mod tests {
     /// Basic test of computing hashes for a folder
     #[test]
     fn test_compute_hashes_for_dir() {
+        //fixme: Need tests handling some errors
         let test_data = TestData::new();
         let results = compute_hashes_for_dir(&test_data.dir1_path);
-        let expected: Vec<Result<FileHash, ToolError>> = vec![
-            Ok(FileHash {
+        let expected = vec![
+            FileHash {
                 filepath: test_data.file1_path,
                 hash: test_data.file1_hash,
-            }),
-            Ok(FileHash {
+            },
+            FileHash {
                 filepath: test_data.file2_dir1_path,
                 hash: test_data.file2_hash_dir1,
-            }),
-            Ok(FileHash {
+            },
+            FileHash {
                 filepath: test_data.file4_dir1_path,
                 hash: test_data.file4_hash,
-            }),
-            Ok(FileHash {
+            },
+            FileHash {
                 filepath: test_data.file5_path,
                 hash: test_data.file5_hash,
-            }),
+            },
         ];
-        assert_eq!(results.len(), expected.len());
-        for (r, e) in zip(results, expected) {
-            assert_eq!(r.unwrap(), e.unwrap());
-        }
+        assert_eq!(results.0, expected);
+        assert!(results.1.is_empty());
     }
 
     /// Test the `gather_paths` function
@@ -826,10 +836,8 @@ mod tests {
             );
             assert_eq!(comparsion.second_not_first, vec![String::from("file3.txt")]);
             let expected = vec![String::from("file2.txt")];
-            assert_eq!(comparsion.different_hashes.len(), expected.len());
-            for (e, a) in zip(comparsion.different_hashes, expected) {
-                assert_eq!(e.unwrap(), a);
-            }
+            assert_eq!(comparsion.different_hashes, expected);
+            assert_eq!(comparsion.errors.len(), 0);
         }
 
         /// Tests for the `any_differences` method
@@ -841,8 +849,7 @@ mod tests {
             fn test_extra_in_first() {
                 let comparsion = PathComparison {
                     first_not_second: Vec::from([String::from("abc")]),
-                    second_not_first: Vec::new(),
-                    different_hashes: Vec::new(),
+                    ..Default::default()
                 };
                 assert_eq!(comparsion.any_differences(), true);
             }
@@ -851,9 +858,8 @@ mod tests {
             #[test]
             fn test_true_extra_in_second() {
                 let comparsion = PathComparison {
-                    first_not_second: Vec::new(),
                     second_not_first: Vec::from([String::from("abc")]),
-                    different_hashes: Vec::new(),
+                    ..Default::default()
                 };
                 assert_eq!(comparsion.any_differences(), true);
             }
@@ -862,9 +868,8 @@ mod tests {
             #[test]
             fn test_true_differing_hashes() {
                 let comparsion = PathComparison {
-                    first_not_second: Vec::new(),
-                    second_not_first: Vec::new(),
-                    different_hashes: Vec::from([Ok(String::from("abc"))]),
+                    different_hashes: Vec::from([String::from("abc")]),
+                    ..Default::default()
                 };
                 assert_eq!(comparsion.any_differences(), true);
             }
