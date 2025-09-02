@@ -412,10 +412,10 @@ impl PathComparison {
     ///
     fn process_pair(
         rel_path: &PathBuf,
-        first_base: &PathBuf,
-        second_base: &PathBuf,
+        first_base: &Path,
+        second_base: &Path,
     ) -> Option<Result<String, ToolError>> {
-        let pair_r = FilePair::new(rel_path, first_base, &second_base);
+        let pair_r = FilePair::new(rel_path, first_base, second_base);
         match pair_r {
             Ok(pair) => {
                 if pair.same_hash() {
@@ -458,6 +458,10 @@ impl PathComparison {
 #[expect(
     clippy::unwrap_used,
     reason = "Unwraps in unit tests are ok, as they will display as failed tests"
+)]
+#[expect(
+    clippy::panic,
+    reason = "Panicing in unit tests are ok, as they will display as failed tests"
 )]
 // FIXME: Need tests for cases. Look for unwraps() in test code to see where that's needed
 mod tests {
@@ -571,9 +575,10 @@ mod tests {
         fn test_hashfile_on_dir() {
             let test_data = TestData::new();
             let result = FileHash::hash_file(&test_data.dir1_path).unwrap_err();
-            match result {
-                ToolError::NotAFileError { filepath } => assert_eq!(filepath, test_data.dir1_path),
-                _ => panic!("Wrong enum variant {:?}", result),
+            if let ToolError::NotAFileError { filepath } = result {
+                assert_eq!(filepath, test_data.dir1_path);
+            } else {
+                panic!("Wrong enum variant");
             }
         }
 
@@ -865,14 +870,12 @@ mod tests {
                 &test_data.dir1_path,
                 &test_data.dir2_path,
             );
-            println!("hello {result:?}");
-            match result.unwrap().unwrap_err() {
-                ToolError::NotAFileError { filepath } => {
-                    assert_eq!(filepath, PathBuf::from("test_files/dir1/file3.txt"))
-                }
-                _ => panic!("Wrong enum variant"),
+
+            if let ToolError::NotAFileError { filepath } = result.unwrap().unwrap_err() {
+                assert_eq!(filepath, PathBuf::from("test_files/dir1/file3.txt"));
+            } else {
+                panic!("Wrong enum variant");
             }
-            // assert_eq!(result.unwrap().unwrap_err(), "file2.txt");
         }
 
         /// Tests for the `any_differences` method
