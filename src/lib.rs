@@ -45,11 +45,8 @@ impl FileHash {
     ///   Will error out if an error occurred when computing the hash for the file
     pub fn new(filepath: &PathBuf) -> Result<Self, ToolError> {
         // Only compute hash if the path points to a file
-        let hash = if filepath.is_file() {
-            Self::hash_file(filepath)?
-        } else {
-            Vec::new()
-        };
+
+        let hash = Self::hash_file(filepath)?;
 
         Ok(Self {
             filepath: filepath.clone(),
@@ -365,23 +362,7 @@ impl PathComparison {
             // or progress bar won't work
             .collect::<Vec<&PathBuf>>()
             .par_iter()
-            // FIXME: Bubble error up further so we can print out all files that
-            // failed hashing at the end (outside of parallel loop)
-            // Will require modifying the hash_path function to return a
-            // vec of result instead of what it currently does.
-            .map(|v| {
-                let pair_r = FilePair::new(v, first_path, second_path);
-                match pair_r {
-                    Ok(pair) => {
-                        if pair.same_hash() {
-                            None
-                        } else {
-                            Some(Ok(pair.get_relative_path_string()))
-                        }
-                    }
-                    Err(e) => Some(Err(e)),
-                }
-            })
+            .map(|v| Self::process_pair(v, first_path, second_path))
             .progress()
             // Have to split up filtering mismatches, and computing hashes, or the progress bar won't worrk
             .filter_map(|a| a)
@@ -420,6 +401,30 @@ impl PathComparison {
             }
         } else {
             println!("No differences found between supplied paths.");
+        }
+    }
+
+    /// Compute hashes for a file that is found in two directories and compare them
+    ///
+    /// # Arguments
+    ///   * `rel_path`: The relative path to the file from both base directories
+    ///
+    ///
+    fn process_pair(
+        rel_path: &PathBuf,
+        first_base: &PathBuf,
+        second_base: &PathBuf,
+    ) -> Option<Result<String, ToolError>> {
+        let pair_r = FilePair::new(rel_path, first_base, &second_base);
+        match pair_r {
+            Ok(pair) => {
+                if pair.same_hash() {
+                    None
+                } else {
+                    Some(Ok(pair.get_relative_path_string()))
+                }
+            }
+            Err(e) => Some(Err(e)),
         }
     }
 
@@ -499,7 +504,7 @@ mod tests {
         file2_dir1_path: PathBuf,
 
         /// Path to file4
-        file4_dir1_path: PathBuf,
+        file4_path: PathBuf,
 
         /// Path to file5
         file5_path: PathBuf,
@@ -544,7 +549,7 @@ mod tests {
                 dir3_path: PathBuf::from("test_files/dir3"),
                 file1_path: PathBuf::from("test_files/dir1/file1.txt"),
                 file2_dir1_path: PathBuf::from("test_files/dir1/file2.txt"),
-                file4_dir1_path: PathBuf::from("test_files/dir1/file4.txt"),
+                file4_path: PathBuf::from("test_files/dir1/file4.txt"),
                 file5_path: PathBuf::from("test_files/dir1/subdir/file5.txt"),
             }
         }
@@ -563,12 +568,13 @@ mod tests {
 
         /// Test the `hash_file` method on a directory
         #[test]
-        #[should_panic(
-            expected = "called `Result::unwrap()` on an `Err` value: NotAFileError { filepath: \"test_files/dir1\" }"
-        )]
         fn test_hashfile_on_dir() {
             let test_data = TestData::new();
-            FileHash::hash_file(&test_data.dir1_path).unwrap();
+            let result = FileHash::hash_file(&test_data.dir1_path).unwrap_err();
+            match result {
+                ToolError::NotAFileError { filepath } => assert_eq!(filepath, test_data.dir1_path),
+                _ => panic!("Wrong enum variant {:?}", result),
+            }
         }
 
         /// Test creation and proper hashing.
@@ -582,20 +588,6 @@ mod tests {
                 FileHash {
                     filepath: test_data.file1_path,
                     hash: test_data.file1_hash,
-                }
-            );
-        }
-
-        /// Test creation on the base dir
-        #[test]
-        fn test_creation_base_dir() {
-            let test_data = TestData::new();
-            let result = FileHash::new(&test_data.dir1_path).unwrap();
-            assert_eq!(
-                result,
-                FileHash {
-                    filepath: test_data.dir1_path,
-                    hash: Vec::new(),
                 }
             );
         }
@@ -703,7 +695,7 @@ mod tests {
                 hash: test_data.file2_hash_dir1,
             },
             FileHash {
-                filepath: test_data.file4_dir1_path,
+                filepath: test_data.file4_path,
                 hash: test_data.file4_hash,
             },
             FileHash {
@@ -838,6 +830,49 @@ mod tests {
             let expected = vec![String::from("file2.txt")];
             assert_eq!(comparsion.different_hashes, expected);
             assert_eq!(comparsion.errors.len(), 0);
+        }
+
+        /// Test [`process_pair`] returning info for matching files
+        #[test]
+        fn test_process_pair_same_hash() {
+            let test_data = TestData::new();
+            let result = PathComparison::process_pair(
+                &PathBuf::from("file4.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+            assert!(result.is_none());
+        }
+
+        /// Test [`process_pair`] returning info for not matching files
+        #[test]
+        fn test_process_pair_different_hash() {
+            let test_data = TestData::new();
+            let result = PathComparison::process_pair(
+                &PathBuf::from("file2.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+            assert_eq!(result.unwrap().unwrap(), "file2.txt");
+        }
+
+        /// Test [`process_pair`] returning an error when an error occurred
+        #[test]
+        fn test_process_pair_err() {
+            let test_data = TestData::new();
+            let result = PathComparison::process_pair(
+                &PathBuf::from("file3.txt"),
+                &test_data.dir1_path,
+                &test_data.dir2_path,
+            );
+            println!("hello {result:?}");
+            match result.unwrap().unwrap_err() {
+                ToolError::NotAFileError { filepath } => {
+                    assert_eq!(filepath, PathBuf::from("test_files/dir1/file3.txt"))
+                }
+                _ => panic!("Wrong enum variant"),
+            }
+            // assert_eq!(result.unwrap().unwrap_err(), "file2.txt");
         }
 
         /// Tests for the `any_differences` method
