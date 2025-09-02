@@ -33,25 +33,21 @@ pub struct FileHash {
 }
 
 impl FileHash {
-    /// Create the new hash from the given path.
+    /// Create a new instance of the struct
     ///
     /// # Arguments
-    ///   * `filepath`: The path to the file to hash.
+    ///   * `filepath`: Path to the file being hashed
+    ///   * `hash`: The bytes of the computed hash
     ///
     /// # Returns:
     ///   The created `FileHash` instance.
     ///
-    /// # Errors
-    ///   Will error out if an error occurred when computing the hash for the file
-    pub fn new(filepath: &PathBuf) -> Result<Self, ToolError> {
-        // Only compute hash if the path points to a file
-
-        let hash = Self::hash_file(filepath)?;
-
-        Ok(Self {
-            filepath: filepath.clone(),
-            hash, // hash: Self::hash_to_string(&hash),
-        })
+    /// # Note
+    ///   This does not automatically compute the hash from the file. It is instead for
+    ///   creating a new instance from pre-existing values. For computing the hash from
+    ///   a file, use [`FileHash::try_from`]
+    pub fn new(filepath: PathBuf, hash: Vec<u8>) -> Self {
+        Self { filepath, hash }
     }
 
     /// Compute the hash of the given file
@@ -143,6 +139,27 @@ impl FileHash {
     }
 }
 
+impl TryFrom<&PathBuf> for FileHash {
+    type Error = ToolError;
+
+    /// Create the new hash from the given path.
+    ///
+    /// # Arguments
+    ///   * `value`: The path to the file to hash.
+    ///
+    /// # Returns:
+    ///   The created `FileHash` instance.
+    ///
+    /// # Errors
+    ///   Will error out if an error occurred when computing the hash for the file
+    fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
+        Ok(Self {
+            filepath: value.clone(),
+            hash: Self::hash_file(value)?,
+        })
+    }
+}
+
 /// Recursively find all files in a directory
 ///
 /// # Arguments
@@ -218,7 +235,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>)
     let mut hashes: Vec<Result<FileHash, ToolError>> = gather_paths(base)
         .collect::<Vec<PathBuf>>()
         .par_iter()
-        .map(|file| FileHash::new(&base.join(file)))
+        .map(|file| FileHash::try_from(&base.join(file)))
         .progress()
         .collect();
     hashes.sort_by(compare_hash_result);
@@ -246,8 +263,8 @@ impl FilePair {
         first_base: &Path,
         second_base: &Path,
     ) -> Result<Self, ToolError> {
-        let first_hash = FileHash::new(&first_base.join(relative_path))?.get_hash_string();
-        let second_hash = FileHash::new(&second_base.join(relative_path))?.get_hash_string();
+        let first_hash = FileHash::try_from(&first_base.join(relative_path))?.get_hash_string();
+        let second_hash = FileHash::try_from(&second_base.join(relative_path))?.get_hash_string();
         Ok(Self {
             relative_path: relative_path.clone(),
             first_hash,
@@ -586,7 +603,7 @@ mod tests {
         #[test]
         fn test_creation() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path).unwrap();
+            let result = FileHash::try_from(&test_data.file1_path).unwrap();
 
             assert_eq!(
                 result,
@@ -601,7 +618,7 @@ mod tests {
         #[test]
         fn test_get_rel_filepath() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path)
+            let result = FileHash::try_from(&test_data.file1_path)
                 .unwrap()
                 .get_rel_filepath(&test_data.dir1_path);
             assert_eq!(result.unwrap(), "file1.txt");
@@ -611,7 +628,9 @@ mod tests {
         #[test]
         fn test_get_filepath() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path).unwrap().get_filepath();
+            let result = FileHash::try_from(&test_data.file1_path)
+                .unwrap()
+                .get_filepath();
 
             assert_eq!(result, test_data.file1_path.display().to_string());
         }
@@ -620,7 +639,7 @@ mod tests {
         #[test]
         fn test_get_hash_string() {
             let test_data = TestData::new();
-            let result = FileHash::new(&test_data.file1_path)
+            let result = FileHash::try_from(&test_data.file1_path)
                 .unwrap()
                 .get_hash_string();
 
