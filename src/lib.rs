@@ -56,8 +56,11 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = Result<PathBuf, ToolErro
 ///   Tuple of two vectors. The first vector is a vector of the elements of
 ///   the input that were `Ok`, while the second is a vector of the error messages
 ///   for elements there were `Err`
-// TODO: Input iterator instead? Return iter too?
-fn split_by_result<T>(data: Vec<Result<T, ToolError>>) -> (Vec<T>, Vec<ToolError>) {
+// TODO:Return iter ?
+// TODO: Explicit tests
+fn split_by_result<T>(
+    data: impl Iterator<Item = Result<T, ToolError>>,
+) -> (Vec<T>, Vec<ToolError>) {
     let mut ok_vec = Vec::new();
     let mut err_vec = Vec::new();
     for elem in data {
@@ -84,7 +87,7 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>)
         .progress()
         .collect();
     hashes.sort_by(compare_hash_result);
-    split_by_result(hashes)
+    split_by_result(hashes.into_iter())
 }
 
 /// A pair of files that both have the the same relative path to their bases
@@ -202,14 +205,13 @@ impl PathComparison {
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
         // TODO: Simplify this a bit. Making split_by_result use iters might help
-        let (first_files_vec, first_files_errors) =
-            split_by_result(gather_paths(first_path).collect());
+        let (first_files_vec, first_files_errors) = split_by_result(gather_paths(first_path));
         let first_files: HashSet<PathBuf> = first_files_vec.into_iter().collect();
 
         // Find all files under thew second path.
         // TODO: Simplify this a bit. Making split_by_result use iters might help
         let (second_files_vec, mut second_files_errors) =
-            split_by_result(gather_paths(second_path).collect());
+            split_by_result(gather_paths(second_path));
 
         let second_files: HashSet<PathBuf> = second_files_vec.into_iter().collect();
 
@@ -237,7 +239,8 @@ impl PathComparison {
             .filter_map(|a| a)
             .collect();
 
-        let (mut different_hashes, mut hash_errors) = split_by_result(hash_results);
+        // FIXME: Figure out how to remove the into_iter() below and the collect() above.
+        let (mut different_hashes, mut hash_errors) = split_by_result(hash_results.into_iter());
 
         // Sort the outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
