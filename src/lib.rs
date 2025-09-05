@@ -16,7 +16,7 @@ use crate::errors::ToolError;
 
 use crate::hasher::{FileHash, compare_hash_result};
 use indicatif::ParallelProgressIterator as _;
-use rayon::iter::IntoParallelRefIterator as _;
+use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _};
 use rayon::prelude::ParallelIterator as _;
 use walkdir::{DirEntry, WalkDir};
 
@@ -27,15 +27,22 @@ use walkdir::{DirEntry, WalkDir};
 ///
 /// # Returns
 ///   Iterator that yields all files in the given directory
-fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
+fn gather_paths(base: &PathBuf) -> impl Iterator<Item = Result<PathBuf, ToolError>> {
     WalkDir::new(base).into_iter().filter_map(|v| {
-        let entry = v.unwrap();
-        #[expect(clippy::unwrap_used, reason="WalkDir gives files underneath the base. We are converting all paths to be relative to that base, so this should never panic")]
-        let path = entry.to_rel_path(base).unwrap();
-        if entry.file_type().is_dir() {
-            None
-        } else {
-            Some(path)
+        match v {
+            Ok(entry) => {
+                #[expect(clippy::unwrap_used, reason="WalkDir gives files underneath the base. We are converting all paths to be relative to that base, so this should never panic")]
+                let path = entry.to_rel_path(base).unwrap();
+                if entry.file_type().is_dir() {
+                    None
+                } else {
+                    Some(Ok(path))
+                }
+            }
+            Err(e) => Some(Err(ToolError::WalkDirError {
+                source: Box::new(e),
+                base: base.clone(),
+            })),
         }
     })
 }
@@ -49,6 +56,7 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = PathBuf> {
 ///   Tuple of two vectors. The first vector is a vector of the elements of
 ///   the input that were `Ok`, while the second is a vector of the error messages
 ///   for elements there were `Err`
+// TODO: Input iterator instead? Return iter too?
 fn split_by_result<T>(data: Vec<Result<T, ToolError>>) -> (Vec<T>, Vec<ToolError>) {
     let mut ok_vec = Vec::new();
     let mut err_vec = Vec::new();
@@ -70,9 +78,9 @@ fn split_by_result<T>(data: Vec<Result<T, ToolError>>) -> (Vec<T>, Vec<ToolError
 ///   Vector of `FileHash` objects for all files found recursively in the directory, or errors if hashing a file failed
 pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>) {
     let mut hashes: Vec<Result<FileHash, ToolError>> = gather_paths(base)
-        .collect::<Vec<PathBuf>>()
-        .par_iter()
-        .map(|file| FileHash::try_from(&base.join(file)))
+        .collect::<Vec<Result<PathBuf, ToolError>>>()
+        .into_par_iter()
+        .map(|file| FileHash::try_from(&base.join(file?)))
         .progress()
         .collect();
     hashes.sort_by(compare_hash_result);
@@ -193,10 +201,17 @@ impl PathComparison {
     ///   Will panic if hashing a file fails.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
-        let first_files: HashSet<PathBuf> = gather_paths(first_path).collect();
+        // TODO: Simplify this a bit. Making split_by_result use iters might help
+        let (first_files_vec, first_files_errors) =
+            split_by_result(gather_paths(first_path).collect());
+        let first_files: HashSet<PathBuf> = first_files_vec.into_iter().collect();
 
         // Find all files under thew second path.
-        let second_files: HashSet<PathBuf> = gather_paths(second_path).collect();
+        // TODO: Simplify this a bit. Making split_by_result use iters might help
+        let (second_files_vec, mut second_files_errors) =
+            split_by_result(gather_paths(second_path).collect());
+
+        let second_files: HashSet<PathBuf> = second_files_vec.into_iter().collect();
 
         // Get sets of the files in one or the other path,
         let mut first_not_second: Vec<String> = first_files
@@ -222,12 +237,15 @@ impl PathComparison {
             .filter_map(|a| a)
             .collect();
 
-        let (mut different_hashes, mut errors) = split_by_result(hash_results);
+        let (mut different_hashes, mut hash_errors) = split_by_result(hash_results);
 
         // Sort the outputs so that multiple runs produce predictable outputs
         first_not_second.sort();
         second_not_first.sort();
         different_hashes.sort();
+        let mut errors = first_files_errors;
+        errors.append(&mut second_files_errors);
+        errors.append(&mut hash_errors);
         errors.sort_by_key(ToolError::get_filepath);
 
         Self {
@@ -248,7 +266,7 @@ impl PathComparison {
             Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
 
             if !self.errors.is_empty() {
-                eprintln!("Some files encountered errors during hashing:");
+                eprintln!("Some errors were encountered during processing:");
                 for error in &self.errors {
                     eprintln!("\t{}: {error}", error.get_filepath().display());
                 }
@@ -433,7 +451,9 @@ mod tests {
     #[test]
     fn test_gather_paths() {
         let test_data = TestData::new();
-        let mut results: Vec<PathBuf> = gather_paths(&test_data.dir1_path).collect();
+        let mut results: Vec<PathBuf> = gather_paths(&test_data.dir1_path)
+            .map(|v| v.unwrap())
+            .collect();
         results.sort();
         let expected = vec![
             PathBuf::from("file1.txt"),

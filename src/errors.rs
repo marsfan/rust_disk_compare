@@ -52,6 +52,18 @@ pub enum ToolError {
         /// The base path that was not able to be stripped
         base: PathBuf,
     },
+
+    /// Indicates an error occurred when walking the directory
+    #[error("Error when walking directory '{base}' on file '{}'", self.get_filepath().display())]
+    WalkDirError {
+        /// Parent of this specifc error
+        ///
+        /// Kept in a box since [`walkdir::Error`] is fairly large (72 bytes)
+        source: Box<walkdir::Error>,
+
+        /// The base path that was being walked
+        base: PathBuf,
+    },
 }
 
 impl ToolError {
@@ -65,6 +77,10 @@ impl ToolError {
             | Self::StripPrefixError { filepath, .. }
             | Self::FileReadError { filepath, .. }
             | Self::NotAFileError { filepath } => filepath.clone(),
+            Self::WalkDirError { source, .. } => match source.path() {
+                Some(p) => p.to_path_buf(),
+                None => PathBuf::from(""),
+            },
         }
     }
 }
