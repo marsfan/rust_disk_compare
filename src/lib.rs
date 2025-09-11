@@ -89,7 +89,7 @@ fn gather_paths_to_hashset(base: &PathBuf) -> (HashSet<PathBuf>, Vec<ToolError>)
     for elem in paths {
         match elem {
             Ok(p) => {
-                let _ = files.insert(p);
+                files.insert(p);
             }
             Err(e) => errors.push(e),
         }
