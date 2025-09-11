@@ -487,6 +487,36 @@ mod tests {
         assert_eq!(results, expected);
     }
 
+    #[test]
+    fn test_split_by_result() {
+        let input = vec![
+            Ok(1),
+            Ok(3),
+            Err(ToolError::NotAFileError {
+                filepath: PathBuf::from("ABC"),
+            }),
+            Ok(5),
+            Err(ToolError::NotAFileError {
+                filepath: PathBuf::from("DEF"),
+            }),
+        ];
+
+        let (ok_result, err_result) = split_by_result(input.into_iter());
+        assert_eq!(ok_result, vec![1, 3, 5]);
+
+        // Can't assert equality of ToolError directly, so need to use match statements
+        assert_eq!(err_result.len(), 2);
+
+        match &err_result[0] {
+            ToolError::NotAFileError { filepath } => assert_eq!(filepath, &PathBuf::from("ABC")),
+            _ => panic!("Wrong enum variant"),
+        }
+        match &err_result[1] {
+            ToolError::NotAFileError { filepath } => assert_eq!(filepath, &PathBuf::from("DEF")),
+            _ => panic!("Wrong enum variant"),
+        }
+    }
+
     /// Test the `gather_paths` function
     #[test]
     fn test_gather_paths_to_hashset() {
