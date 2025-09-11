@@ -72,6 +72,31 @@ fn split_by_result<T>(
     (ok_vec, err_vec)
 }
 
+/// Gather all paths under a folder to a hashset.
+///
+/// # Arguments
+///   * `base`: The directory to search
+///
+/// # Returns
+///   Tuple of two vectors. The first vector is a vector of the found paths,
+///    while the second is a vector of the error messages that occurred when walking
+///    the directory
+fn gather_paths_to_hashset(base: &PathBuf) -> (HashSet<PathBuf>, Vec<ToolError>) {
+    // TODO: Simplify this a bit. Making split_by_result use iters might help
+    let paths = gather_paths(base);
+    let mut files = HashSet::new();
+    let mut errors = Vec::new();
+    for elem in paths {
+        match elem {
+            Ok(p) => {
+                let _ = files.insert(p);
+            }
+            Err(e) => errors.push(e),
+        }
+    }
+    (files, errors)
+}
+
 /// Compute hashes for all files in a directory, recursively
 ///
 /// # Arguments
@@ -204,16 +229,11 @@ impl PathComparison {
     ///   Will panic if hashing a file fails.
     pub fn new(first_path: &PathBuf, second_path: &PathBuf) -> Self {
         // Find all files (not folders) under the first path
-        // TODO: Simplify this a bit. Making split_by_result use iters might help
-        let (first_files_vec, first_files_errors) = split_by_result(gather_paths(first_path));
-        let first_files: HashSet<PathBuf> = first_files_vec.into_iter().collect();
+        let (first_files, first_files_errors) = gather_paths_to_hashset(first_path);
 
         // Find all files under thew second path.
         // TODO: Simplify this a bit. Making split_by_result use iters might help
-        let (second_files_vec, mut second_files_errors) =
-            split_by_result(gather_paths(second_path));
-
-        let second_files: HashSet<PathBuf> = second_files_vec.into_iter().collect();
+        let (second_files, mut second_files_errors) = gather_paths_to_hashset(second_path);
 
         // Get sets of the files in one or the other path,
         let mut first_not_second: Vec<String> = first_files
@@ -465,6 +485,23 @@ mod tests {
             PathBuf::from(format!("subdir{MAIN_SEPARATOR}file5.txt")),
         ];
         assert_eq!(results, expected);
+    }
+
+    /// Test the `gather_paths` function
+    #[test]
+    fn test_gather_paths_to_hashset() {
+        let test_data = TestData::new();
+        let results = gather_paths_to_hashset(&test_data.dir1_path);
+
+        let expected_hashset = HashSet::from([
+            PathBuf::from("file1.txt"),
+            PathBuf::from("file2.txt"),
+            PathBuf::from("file4.txt"),
+            PathBuf::from(format!("subdir{MAIN_SEPARATOR}file5.txt")),
+        ]);
+
+        assert_eq!(results.0, expected_hashset);
+        assert!(results.1.is_empty());
     }
 
     mod test_file_pair {
