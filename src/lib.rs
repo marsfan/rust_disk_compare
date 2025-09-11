@@ -507,10 +507,18 @@ mod tests {
         // Can't assert equality of ToolError directly, so need to use match statements
         assert_eq!(err_result.len(), 2);
 
+        #[expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "Any other enum variant is invalid, so wildcard match is OK here."
+        )]
         match &err_result[0] {
             ToolError::NotAFileError { filepath } => assert_eq!(filepath, &PathBuf::from("ABC")),
             _ => panic!("Wrong enum variant"),
         }
+        #[expect(
+            clippy::wildcard_enum_match_arm,
+            reason = "Any other enum variant is invalid, so wildcard match is OK here."
+        )]
         match &err_result[1] {
             ToolError::NotAFileError { filepath } => assert_eq!(filepath, &PathBuf::from("DEF")),
             _ => panic!("Wrong enum variant"),
