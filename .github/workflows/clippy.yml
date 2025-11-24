@@ -15,7 +15,7 @@ jobs:
         profile: [dev, release]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Clippy
         run: cargo clippy --profile ${{ matrix.profile }} --all --tests -- -D warnings
 
