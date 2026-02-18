@@ -3,7 +3,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https: //mozilla.org/MPL/2.0/.
 */
-//! Code for computing file hashes
+//! Code for computing file hashes.
 use crate::ToolError;
 use core::cmp::Ordering;
 use core::fmt::Write as _;
@@ -12,21 +12,21 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
-/// A single file and its hash
+/// A single file and its hash.
 #[derive(PartialEq, Debug, Eq, PartialOrd, Ord)]
 pub struct FileHash {
-    /// The path to the file that was hashed
+    /// The path to the file that was hashed.
     filepath: PathBuf,
-    /// The file's hash
+    /// The file's hash.
     hash: Vec<u8>,
 }
 
 impl FileHash {
-    /// Create a new instance of the struct
+    /// Create a new instance of the struct.
     ///
     /// # Arguments
-    ///   * `filepath`: Path to the file being hashed
-    ///   * `hash`: The bytes of the computed hash
+    ///   * `filepath`: Path to the file being hashed.
+    ///   * `hash`: The bytes of the computed hash.
     ///
     /// # Returns:
     ///   The created `FileHash` instance.
@@ -34,12 +34,12 @@ impl FileHash {
     /// # Note
     ///   This does not automatically compute the hash from the file. It is instead for
     ///   creating a new instance from pre-existing values. For computing the hash from
-    ///   a file, use [`FileHash::try_from`]
+    ///   a file, use [`FileHash::try_from`].
     pub fn new(filepath: PathBuf, hash: Vec<u8>) -> Self {
         Self { filepath, hash }
     }
 
-    /// Compute the hash of the given file
+    /// Compute the hash of the given file.
     ///
     /// # Arguments
     /// * `filepath`: Path to the file to hash.
@@ -67,16 +67,16 @@ impl FileHash {
         Ok(hasher.finalize().to_vec())
     }
 
-    /// Get the relative path to the file as a string
+    /// Get the relative path to the file as a string.
     ///
     /// # Arguments
     ///   base: Base directory to get path relative to.
     ///
     /// # Returns
-    ///   The relative file path as a string
+    ///   The relative file path as a string.
     ///
     /// # Errors
-    ///   Will return an error if not able to convert the path to a relative path
+    ///   Will return an error if not able to convert the path to a relative path.
     pub fn get_rel_filepath(&self, base: &PathBuf) -> Result<String, ToolError> {
         Ok(self
             .filepath
@@ -90,24 +90,24 @@ impl FileHash {
             .to_string())
     }
 
-    /// # Get the path to the file as a strring
+    /// # Get the path to the file as a strring.
     ///
     /// # Returns
-    ///   The path to the file as a string
+    ///   The path to the file as a string.
     pub fn get_filepath(&self) -> String {
         self.filepath.display().to_string()
     }
 
-    /// Get the file hash represented as a string
+    /// Get the file hash represented as a string.
     ///
     /// # Returns
-    ///   The file's hash as a string of hexadecimal values
+    ///   The file's hash as a string of hexadecimal values.
     pub fn get_hash_string(&self) -> String {
         Self::hash_to_string(&self.hash)
         // self.hash.clone()
     }
 
-    /// Convert the given vector hash to a string
+    /// Convert the given vector hash to a string.
     ///
     /// Arguments:
     ///   - `hash`: The hash to convert.
@@ -140,7 +140,7 @@ impl TryFrom<&PathBuf> for FileHash {
     ///   The created `FileHash` instance.
     ///
     /// # Errors
-    ///   Will error out if an error occurred when computing the hash for the file
+    ///   Will error out if an error occurred when computing the hash for the file.
     fn try_from(value: &PathBuf) -> Result<Self, Self::Error> {
         Ok(Self {
             filepath: value.clone(),
@@ -149,17 +149,17 @@ impl TryFrom<&PathBuf> for FileHash {
     }
 }
 
-/// Compare two `Result<FileHash, ToolError>` elements by their filepaths
+/// Compare two `Result<FileHash, ToolError>` elements by their filepaths.
 ///
-/// If both elements are the same [`Result`] variant, then the filepaths are compare
-/// if they are not of the same varriant, then the element that is [`Ok`] is considered smaller
+/// If both elements are the same [`Result`] variant, then the filepaths are compared.
+/// If they are not of the same varriant, then the element that is [`Ok`] is considered smaller.
 ///
 /// # Arguments
-///   * `a`: The first of the two elements to compare
-///   * `b`: The second of the two elements to compare
+///   * `a`: The first of the two elements to compare.
+///   * `b`: The second of the two elements to compare.
 ///
 /// # Returns
-///   [`Ordering`] variant according to aforementioned sorting rules
+///   [`Ordering`] variant according to aforementioned sorting rules.
 pub fn compare_hash_result(
     a: &Result<FileHash, ToolError>,
     b: &Result<FileHash, ToolError>,
@@ -182,7 +182,7 @@ mod tests {
 
     use super::*;
 
-    /// Test the `hash_file` method
+    /// Test the `hash_file` method.
     #[test]
     fn test_hash_file() {
         let test_data = TestData::new();
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(hash, test_data.file1_hash);
     }
 
-    /// Test the `hash_file` method on a directory
+    /// Test the `hash_file` method on a directory.
     #[test]
     fn test_hashfile_on_dir() {
         let test_data = TestData::new();
@@ -217,7 +217,7 @@ mod tests {
         );
     }
 
-    /// Test `get_rel_filepath` method
+    /// Test `get_rel_filepath` method.
     #[test]
     fn test_get_rel_filepath() {
         let test_data = TestData::new();
@@ -227,7 +227,7 @@ mod tests {
         assert_eq!(result.unwrap(), "file1.txt");
     }
 
-    /// Test `get_filepath` method
+    /// Test `get_filepath` method.
     #[test]
     fn test_get_filepath() {
         let test_data = TestData::new();
@@ -238,7 +238,7 @@ mod tests {
         assert_eq!(result, test_data.file1_path.display().to_string());
     }
 
-    /// Test `get_hash_string` method
+    /// Test `get_hash_string` method.
     #[test]
     fn test_get_hash_string() {
         let test_data = TestData::new();
@@ -249,7 +249,7 @@ mod tests {
         assert_eq!(result, test_data.file1_hash_str);
     }
 
-    /// Test [`compare_hash_result`] function
+    /// Test [`compare_hash_result`] function.
     #[test]
     fn test_compare_hash_result() {
         let cases = [

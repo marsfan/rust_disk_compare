@@ -3,7 +3,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https: //mozilla.org/MPL/2.0/.
 */
-//! Command line argument parser
+//! Command line argument parser.
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -17,11 +17,11 @@ use std::path::PathBuf;
     after_help = "If only one path is supplied, the tool will print out all found files and their hashes. If two paths are supplied, the tool will output the differences between the two paths."
 )]
 pub struct Arguments {
-    /// Path to the first file/directory to scan
+    /// Path to the first file/directory to scan.
     #[arg()]
     pub first_path: PathBuf,
 
-    /// Path to the second file/directory to scan
+    /// Path to the second file/directory to scan.
     #[arg()]
     pub second_path: Option<PathBuf>,
 }

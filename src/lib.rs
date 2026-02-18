@@ -3,7 +3,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at https: //mozilla.org/MPL/2.0/.
 */
-//! Core program functionality
+//! Core program functionality.
 
 pub mod cli;
 pub mod errors;
@@ -20,13 +20,13 @@ use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _};
 use rayon::prelude::ParallelIterator as _;
 use walkdir::{DirEntry, WalkDir};
 
-/// Recursively find all files in a directory
+/// Recursively find all files in a directory.
 ///
 /// # Arguments
-///   * `base`: The directory to search
+///   * `base`: The directory to search.
 ///
 /// # Returns
-///   Iterator that yields all files in the given directory
+///   Iterator that yields all files in the given directory.
 fn gather_paths(base: &PathBuf) -> impl Iterator<Item = Result<PathBuf, ToolError>> {
     WalkDir::new(base).into_iter().filter_map(|v| {
         match v {
@@ -47,7 +47,7 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = Result<PathBuf, ToolErro
     })
 }
 
-/// Split a vector of results into vectors of Ok and Err elements
+/// Split a vector of results into vectors of Ok and Err elements.
 ///
 /// # Arguments
 ///   * `data`: The vector to split.
@@ -55,7 +55,7 @@ fn gather_paths(base: &PathBuf) -> impl Iterator<Item = Result<PathBuf, ToolErro
 /// # Returns
 ///   Tuple of two vectors. The first vector is a vector of the elements of
 ///   the input that were `Ok`, while the second is a vector of the error messages
-///   for elements there were `Err`
+///   for elements there were `Err`.
 // TODO:Return iter ?
 // TODO: Explicit tests
 fn split_by_result<T>(
@@ -75,12 +75,12 @@ fn split_by_result<T>(
 /// Gather all paths under a folder to a hashset.
 ///
 /// # Arguments
-///   * `base`: The directory to search
+///   * `base`: The directory to search.
 ///
 /// # Returns
 ///   Tuple of two vectors. The first vector is a vector of the found paths,
 ///    while the second is a vector of the error messages that occurred when walking
-///    the directory
+///    the directory.
 fn gather_paths_to_hashset(base: &PathBuf) -> (HashSet<PathBuf>, Vec<ToolError>) {
     // TODO: Simplify this a bit. Making split_by_result use iters might help
     let paths = gather_paths(base);
@@ -97,13 +97,13 @@ fn gather_paths_to_hashset(base: &PathBuf) -> (HashSet<PathBuf>, Vec<ToolError>)
     (files, errors)
 }
 
-/// Compute hashes for all files in a directory, recursively
+/// Compute hashes for all files in a directory, recursively.
 ///
 /// # Arguments
-///   * `base`: The directory to search through
+///   * `base`: The directory to search through.
 ///
 /// # Returns
-///   Vector of `FileHash` objects for all files found recursively in the directory, or errors if hashing a file failed
+///   Vector of `FileHash` objects for all files found recursively in the directory, or errors if hashing a file failed.
 pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>) {
     let mut hashes: Vec<Result<FileHash, ToolError>> = gather_paths(base)
         .collect::<Vec<Result<PathBuf, ToolError>>>()
@@ -115,22 +115,22 @@ pub fn compute_hashes_for_dir(base: &PathBuf) -> (Vec<FileHash>, Vec<ToolError>)
     split_by_result(hashes.into_iter())
 }
 
-/// A pair of files that both have the the same relative path to their bases
+/// A pair of files that both have the the same relative path to their bases.
 #[derive(Debug, PartialEq, Eq)]
 struct FilePair {
-    /// Relative path to both files
+    /// Relative path to both files.
     relative_path: PathBuf,
 
     // TODO: Store hashes as bytes and only compute string on request?
-    /// Hash of the first file
+    /// Hash of the first file.
     first_hash: String,
 
-    /// Hash of the second file
+    /// Hash of the second file.
     second_hash: String,
 }
 
 impl FilePair {
-    /// Function that is called on each path to hash
+    /// Function that is called on each path to hash.
     pub fn new(
         relative_path: &PathBuf,
         first_base: &Path,
@@ -145,21 +145,21 @@ impl FilePair {
         })
     }
 
-    /// Check if the two file hashes are identical
+    /// Check if the two file hashes are identical.
     ///
     /// # Returns
-    ///   Boolean indicating if the files have matching hashes
+    ///   Boolean indicating if the files have matching hashes.
     pub fn same_hash(&self) -> bool {
         self.first_hash == self.second_hash
     }
 
-    /// Get the relative path to the file as a string
+    /// Get the relative path to the file as a string.
     ///
     /// Since both files are relative to a base, this is the relative
     /// path for both files from their bases.
     ///
     /// # Returns
-    ///   A string holding the relative path to the files
+    ///   A string holding the relative path to the files.
     pub fn get_relative_path_string(&self) -> String {
         self.relative_path.display().to_string()
     }
@@ -171,13 +171,13 @@ trait ToRelativePath {
     /// Get a path that is relative to the given base path.
     ///
     /// # Arguments
-    ///   * `base_path`: The base path to make the path relative to
+    ///   * `base_path`: The base path to make the path relative to.
     ///
     /// # Returns
-    ///   * Path to this file, relative to the given base path
+    ///   * Path to this file, relative to the given base path.
     ///
     /// # Errors
-    ///   Will return an error of it is not possible to make the path
+    ///   Will return an error of it is not possible to make the path.
     ///   relative to the given base path.
     fn to_rel_path(&self, base_path: &Path) -> Result<PathBuf, ToolError>;
 }
@@ -203,24 +203,24 @@ pub struct PathComparison {
     // TODO: Add a member for identical files?
     /// Files in the first path, but not the second.
     first_not_second: Vec<String>,
-    /// Files in second path, but not first
+    /// Files in second path, but not first.
     second_not_first: Vec<String>,
     /// Files in both, but with differing hashes.
-    /// Uses a Result<> so we can info on files that may have failed to properly hash
+    /// Uses a Result<> so we can info on files that may have failed to properly hash.
     different_hashes: Vec<String>,
 
-    /// Errors that occurred during hashing
+    /// Errors that occurred during hashing.
     errors: Vec<ToolError>,
     // Files in both, with matching hashes
     // same_hashes: Vec<String>,
 }
 
 impl PathComparison {
-    /// Compute comparasion results
+    /// Compute comparasion results.
     ///
     /// # Arguments
-    ///   - `first_path`: The first of the two paths to scan
-    ///   - `second_path`: The second of the two paths to scan
+    ///   - `first_path`: The first of the two paths to scan.
+    ///   - `second_path`: The second of the two paths to scan.
     ///
     /// # Returns
     ///   Created `PathComparison` instance.
@@ -279,7 +279,7 @@ impl PathComparison {
         }
     }
 
-    /// Print the differencess to stdout
+    /// Print the differencess to stdout.
     pub fn print_results(&self) {
         // Print an extra newline
         println!();
@@ -299,10 +299,10 @@ impl PathComparison {
         }
     }
 
-    /// Compute hashes for a file that is found in two directories and compare them
+    /// Compute hashes for a file that is found in two directories and compare them.
     ///
     /// # Arguments
-    ///   * `rel_path`: The relative path to the file from both base directories
+    ///   * `rel_path`: The relative path to the file from both base directories.
     ///
     ///
     fn process_pair(
@@ -323,10 +323,10 @@ impl PathComparison {
         }
     }
 
-    /// Print the given info line and vector values if the vector length > 0
+    /// Print the given info line and vector values if the vector length > 0.
     ///
     /// # Arguments:
-    /// * `description`: The description text to print at the start
+    /// * `description`: The description text to print at the start.
     /// * `paths`: The vector of the paths to print out.
     fn print_vec(description: &str, paths: &Vec<String>) {
         if !paths.is_empty() {
@@ -337,7 +337,7 @@ impl PathComparison {
         }
     }
 
-    /// Get if there are any differences found between supplied paths
+    /// Get if there are any differences found between supplied paths.
     ///
     /// # Returns
     ///   Boolean indicating if any differences were found between the supplied paths.
@@ -364,48 +364,48 @@ mod tests {
 
     use super::*;
 
-    /// Info used in tests
+    /// Info used in tests.
     pub struct TestData {
-        /// String of hash for file1.txt
+        /// String of hash for file1.txt.
         pub file1_hash_str: String,
 
-        /// String of hash for file1.txt in dir1
+        /// String of hash for file1.txt in dir1.
         pub file2_hash_str_dir1: String,
 
-        /// String of hash for file1.txt in dir2
+        /// String of hash for file1.txt in dir2.
         pub file2_hash_str_dir2: String,
 
-        /// File1.txt hash
+        /// File1.txt hash.
         pub file1_hash: Vec<u8>,
 
-        /// File2.txt hash in dir 1
+        /// File2.txt hash in dir 1.
         pub file2_hash_dir1: Vec<u8>,
 
-        /// File4.txt hash
+        /// File4.txt hash.
         pub file4_hash: Vec<u8>,
 
-        /// File5.txt hash
+        /// File5.txt hash.
         pub file5_hash: Vec<u8>,
 
-        /// Path to dir1
+        /// Path to dir1.
         pub dir1_path: PathBuf,
 
-        /// Path to dir2
+        /// Path to dir2.
         pub dir2_path: PathBuf,
 
-        /// Path to dir3
+        /// Path to dir3.
         pub dir3_path: PathBuf,
 
-        /// Path to file1
+        /// Path to file1.
         pub file1_path: PathBuf,
 
-        /// Path to file2
+        /// Path to file2.
         pub file2_dir1_path: PathBuf,
 
-        /// Path to file4
+        /// Path to file4.
         pub file4_path: PathBuf,
 
-        /// Path to file5
+        /// Path to file5.
         pub file5_path: PathBuf,
     }
 
@@ -454,7 +454,7 @@ mod tests {
         }
     }
 
-    /// Basic test of computing hashes for a folder
+    /// Basic test of computing hashes for a folder.
     #[test]
     fn test_compute_hashes_for_dir() {
         //fixme: Need tests handling some errors
@@ -470,7 +470,7 @@ mod tests {
         assert!(results.1.is_empty());
     }
 
-    /// Test the `gather_paths` function
+    /// Test the `gather_paths` function.
     #[test]
     fn test_gather_paths() {
         let test_data = TestData::new();
@@ -525,7 +525,7 @@ mod tests {
         }
     }
 
-    /// Test the `gather_paths` function
+    /// Test the `gather_paths` function.
     #[test]
     fn test_gather_paths_to_hashset() {
         let test_data = TestData::new();
@@ -545,7 +545,7 @@ mod tests {
     mod test_file_pair {
         use super::*;
 
-        /// Test creation of a new file pair
+        /// Test creation of a new file pair.
         #[test]
         fn test_new() {
             let test_data = TestData::new();
@@ -565,7 +565,7 @@ mod tests {
             assert_eq!(result.unwrap(), expected);
         }
 
-        /// Test the `same_hash` method when file hashes are the same
+        /// Test the `same_hash` method when file hashes are the same.
         #[test]
         fn test_same_hash_true() {
             let test_data = TestData::new();
@@ -579,7 +579,7 @@ mod tests {
             assert_eq!(pair.unwrap().same_hash(), true);
         }
 
-        /// Test the `same_hash` method when file hashes are not the same
+        /// Test the `same_hash` method when file hashes are not the same.
         #[test]
         fn test_same_hash_false() {
             let test_data = TestData::new();
@@ -593,7 +593,7 @@ mod tests {
             assert_eq!(pair.unwrap().same_hash(), false);
         }
 
-        /// Test getting the relative path string
+        /// Test getting the relative path string.
         #[test]
         fn test_get_relative_path_string() {
             let test_data = TestData::new();
@@ -608,7 +608,7 @@ mod tests {
         }
     }
 
-    /// Test the `to_rel_path` function that is implemented on `DirEntry`
+    /// Test the `to_rel_path` function that is implemented on `DirEntry`.
     #[test]
     fn test_to_rel_path() {
         let test_data = TestData::new();
@@ -634,7 +634,7 @@ mod tests {
     mod test_path_comparsion {
         use super::*;
 
-        /// Test creation of the struct
+        /// Test creation of the struct.
         #[test]
         fn test_creation() {
             let test_data = TestData::new();
@@ -652,7 +652,7 @@ mod tests {
             assert_eq!(comparsion.errors.len(), 0);
         }
 
-        /// Test [`process_pair`] returning info for matching files
+        /// Test [`process_pair`] returning info for matching files.
         #[test]
         fn test_process_pair_same_hash() {
             let test_data = TestData::new();
@@ -664,7 +664,7 @@ mod tests {
             assert!(result.is_none());
         }
 
-        /// Test [`process_pair`] returning info for not matching files
+        /// Test [`process_pair`] returning info for not matching files.
         #[test]
         fn test_process_pair_different_hash() {
             let test_data = TestData::new();
@@ -676,7 +676,7 @@ mod tests {
             assert_eq!(result.unwrap().unwrap(), "file2.txt");
         }
 
-        /// Test [`process_pair`] returning an error when an error occurred
+        /// Test [`process_pair`] returning an error when an error occurred.
         #[test]
         fn test_process_pair_err() {
             let test_data = TestData::new();
@@ -693,11 +693,11 @@ mod tests {
             }
         }
 
-        /// Tests for the `any_differences` method
+        /// Tests for the `any_differences` method.
         mod test_any_differences {
             use super::*;
 
-            /// Test the `any_differences` method when there is an additional file in the first directory
+            /// Test the `any_differences` method when there is an additional file in the first directory.
             #[test]
             fn test_extra_in_first() {
                 let comparsion = PathComparison {
@@ -707,7 +707,7 @@ mod tests {
                 assert_eq!(comparsion.any_differences(), true);
             }
 
-            /// Test the `any_differences` method when there is an additional file in the second directory
+            /// Test the `any_differences` method when there is an additional file in the second directory.
             #[test]
             fn test_true_extra_in_second() {
                 let comparsion = PathComparison {
@@ -717,7 +717,7 @@ mod tests {
                 assert_eq!(comparsion.any_differences(), true);
             }
 
-            /// Test the `any_differences` method when there are files with differing hashes
+            /// Test the `any_differences` method when there are files with differing hashes.
             #[test]
             fn test_true_differing_hashes() {
                 let comparsion = PathComparison {
@@ -727,7 +727,7 @@ mod tests {
                 assert_eq!(comparsion.any_differences(), true);
             }
 
-            /// Test the `any_differences` method when there are no differences
+            /// Test the `any_differences` method when there are no differences.
             #[test]
             fn test_false() {
                 let test_data = TestData::new();
