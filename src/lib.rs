@@ -16,6 +16,7 @@ use std::{collections::HashSet, path::Path};
 
 use crate::errors::ToolError;
 
+use digest_io::IoWrapper;
 use indicatif::ParallelProgressIterator as _;
 use rayon::iter::IntoParallelRefIterator as _;
 use rayon::prelude::ParallelIterator as _;
@@ -66,7 +67,7 @@ impl FileHash {
                 filepath: filepath.display().to_string(),
             });
         }
-        let mut hasher = Sha256::new();
+        let mut hasher = IoWrapper(Sha256::new());
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
             kind: error.kind(),
             filepath: filepath.display().to_string(),
@@ -78,7 +79,7 @@ impl FileHash {
         // Guessing its sending copying the file in chunks?
 
         io::copy(&mut file, &mut hasher)?;
-        Ok(hasher.finalize().to_vec())
+        Ok(hasher.0.finalize().to_vec())
     }
 
     /// Get the relative path to the file as a string.
