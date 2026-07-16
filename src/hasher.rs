@@ -7,6 +7,7 @@
 use crate::ToolError;
 use core::cmp::Ordering;
 use core::fmt::Write as _;
+use digest_io::IoWrapper;
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::io;
@@ -49,7 +50,7 @@ impl FileHash {
                 filepath: filepath.clone(),
             });
         }
-        let mut hasher = Sha256::new();
+        let mut hasher = IoWrapper(Sha256::new());
         let mut file = File::open(filepath).map_err(|error| ToolError::FileReadError {
             source: error,
             filepath: filepath.clone(),
@@ -64,7 +65,7 @@ impl FileHash {
             source: e,
             filepath: filepath.clone(),
         })?;
-        Ok(hasher.finalize().to_vec())
+        Ok(hasher.0.finalize().to_vec())
     }
 
     /// Get the relative path to the file as a string.

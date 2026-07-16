@@ -14,7 +14,7 @@ fn main() {
     let args = Arguments::parse();
 
     if let Some(second_path) = args.second_path {
-        println!("Finding differeing files between paths.");
+        println!("Finding differing files between paths.");
 
         PathComparison::new(&args.first_path, &second_path).print_results();
     } else {
