@@ -16,7 +16,7 @@ fn main() {
     if let Some(second_path) = args.second_path {
         println!("Finding differing files between paths.");
 
-        PathComparison::new(&args.first_path, &second_path).print_results();
+        PathComparison::new(&args.first_path, &second_path).print_results(args.no_only_first);
     } else {
         println!("Computing hashes for all files in the given path.");
         for hash in compute_hashes_for_dir(&args.first_path) {

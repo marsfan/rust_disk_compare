@@ -337,11 +337,16 @@ impl PathComparison {
     }
 
     /// Print the differencess to stdout.
-    pub fn print_results(&self) {
+    ///
+    /// # Arguments:
+    ///   * `no_only_first`: If true, files in the first path but not the second will not be displayed
+    pub fn print_results(&self, no_only_first: bool) {
         // Print an extra newline
         println!();
         if self.any_differences() {
-            Self::print_vec("In first path, but not second", &self.first_not_second);
+            if !no_only_first {
+                Self::print_vec("In first path, but not second", &self.first_not_second);
+            }
             Self::print_vec("In second path, but not first:", &self.second_not_first);
             Self::print_vec("In both paths, but hashes differ:", &self.different_hashes);
         } else {

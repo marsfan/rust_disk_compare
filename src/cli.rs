@@ -24,4 +24,8 @@ pub struct Arguments {
     /// Path to the second file/directory to scan.
     #[arg()]
     pub second_path: Option<PathBuf>,
+
+    /// Don't display files that are only in the first directory when comparing two paths.
+    #[arg(long)]
+    pub no_only_first: bool,
 }
