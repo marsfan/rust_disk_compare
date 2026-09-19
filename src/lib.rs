@@ -343,7 +343,11 @@ impl PathComparison {
     pub fn print_results(&self, no_only_first: bool) {
         // Print an extra newline
         println!();
-        if self.any_differences() {
+        // TODO: Clean this if statement up a bit.
+        if (!no_only_first && self.any_differences())
+            || (no_only_first
+                && (!self.second_not_first.is_empty() || !self.different_hashes.is_empty()))
+        {
             if !no_only_first {
                 Self::print_vec("In first path, but not second", &self.first_not_second);
             }
