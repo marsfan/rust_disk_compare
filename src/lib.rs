@@ -379,6 +379,10 @@ impl PathComparison {
     clippy::unwrap_used,
     reason = "Unwraps in unit tests are ok, as they will display as failed tests"
 )]
+#[expect(
+    clippy::inline_modules,
+    reason = "Clippy bug causes this lint to trigger even though it is a test module"
+)]
 mod tests {
     use std::path::MAIN_SEPARATOR;
 
@@ -596,6 +600,7 @@ mod tests {
         assert_eq!(results, expected);
     }
 
+    #[cfg(test)]
     mod test_file_pair {
         use super::*;
 
@@ -685,6 +690,7 @@ mod tests {
         assert_eq!(files, expected);
     }
 
+    #[cfg(test)]
     mod test_path_comparsion {
         use super::*;
 
@@ -705,6 +711,7 @@ mod tests {
         }
 
         /// Tests for the `any_differences` method.
+        #[cfg(test)]
         mod test_any_differences {
             use super::*;
 
